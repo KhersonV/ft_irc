@@ -4,6 +4,13 @@
 #include <fcntl.h>
 #include <iostream>
 #include <unistd.h>
+#include <arpa/inet.h>
+#include <cstring>
+#include <cstdio>
+#include <poll.h>
+#include <map>
+#include <vector>
+
 
 // фунция перевода fd в Non-block мод (чтобы не вис при accept(), send(), и тд)
 int set_nonblocking(int fd) {
@@ -42,7 +49,7 @@ int create_listen_socket(int port) {
 	address.sin_addr.s_addr = htonl(INADDR_ANY);
 	address.sin_port = htons(port);
 	// при addr.sin_port = htons(0); ядро само выбирает порт
-	// getdockname(fd, (sockaddr*)&address, &len) == 0)
+	// getsockname(fd, (sockaddr*)&address, &len) == 0)
 	// std::cout << "bound to port " << ntohs(got.sin_port) << "\n";
 
 
@@ -64,11 +71,36 @@ int create_listen_socket(int port) {
 }
 
 int main(void) {
+
+	std::map<int, std::string> inbuf;
+
+
 	int port = 6667;
 	int server_fd = create_listen_socket(port);
 	if (server_fd < 0)
 		return 1;
-	std::cin.get();
+
+	for(;;) {
+	pollfd p;
+	p.fd = server_fd;
+	p.events = POLLIN;
+	p.revents = 0;
+
+	int ret = poll(&p, 1, -1);
+	if (ret > 0 && (p.revents & POLLIN)) {
+		for (;;) {
+			int cfd = accept(server_fd, 0, 0);
+			if (cfd >= 0) {
+				set_nonblocking(cfd);
+				std::cout << "New client fd=" << cfd << "\n";
+				close(cfd);
+				continue;
+			}
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				break;
+		}
+	}
+}
 	close(server_fd);
 	return 0;
 }
