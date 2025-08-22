@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <map>
 #include <vector>
+#include <algorithm>
 
 
 // фунция перевода fd в Non-block мод (чтобы не вис при accept(), send(), и тд)
@@ -70,9 +71,15 @@ int create_listen_socket(int port) {
 	return fd;
 }
 
-int main(void) {
+static void close_and_remove(int fd, std::vector<int>& clients) {
+    ::close(fd);
+    clients.erase(std::remove(clients.begin(), clients.end(), fd), clients.end());
+    std::cout << "Close fd=" << fd << "\n";
+}
 
-	std::map<int, std::string> inbuf;
+int main(void) {
+	std::vector<int> clients;
+	std::vector<pollfd> pfds;
 
 
 	int port = 6667;
@@ -81,25 +88,77 @@ int main(void) {
 		return 1;
 
 	for(;;) {
-	pollfd p;
-	p.fd = server_fd;
-	p.events = POLLIN;
-	p.revents = 0;
+		pfds.clear();
 
-	int ret = poll(&p, 1, -1);
-	if (ret > 0 && (p.revents & POLLIN)) {
+		pollfd sp;
+		sp.fd = server_fd;
+		sp.events = POLLIN;
+		sp.revents = 0;
+		pfds.push_back(sp);
+
+		for (size_t i = 0; i < clients.size(); ++i) {
+			pollfd p;
+			p.fd = clients[i];
+			p.events = POLLIN;
+			p.revents = 0;
+			pfds.push_back(p);
+		}
+
+	int ret = poll(&pfds[0], pfds.size(), -1);
+	if (ret < 0) {
+		if (errno == EINTR)
+			continue;
+		std::perror("poll");
+		break;
+	}
+	if (pfds[0].revents & POLLIN) {
 		for (;;) {
 			int cfd = accept(server_fd, 0, 0);
 			if (cfd >= 0) {
 				set_nonblocking(cfd);
 				std::cout << "New client fd=" << cfd << "\n";
-				close(cfd);
+				clients.push_back(cfd);
 				continue;
 			}
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
 		}
 	}
+
+	for (size_t i = 1; i < pfds.size(); ++i) {
+		int fd = pfds[i].fd;
+		short re = pfds[i].revents;
+
+		if (re & (POLLERR | POLLHUP | POLLNVAL)) {
+			close_and_remove(fd, clients);
+			continue;
+		}
+
+		if (re & POLLIN) {
+			char buf[4096];
+			for (;;) {
+				ssize_t n = recv(fd, buf, sizeof(buf), 0);
+				if (n > 0) {
+					std::cout << "Read fd=" << fd << " bytes=" << n
+							<< " data=\"" << std::string(buf, n) << "\"\n";
+					continue;
+				}
+				if (n == 0) {
+					std::cout << "EOF fd=" << fd << "\n";
+					close_and_remove(fd, clients);
+					break;
+				}
+
+				if(errno == EAGAIN || errno == EWOULDBLOCK) {
+					break;
+				}
+				std::perror("recv");
+				close_and_remove(fd, clients);
+				break;
+			}
+		}
+	}
+
 }
 	close(server_fd);
 	return 0;
