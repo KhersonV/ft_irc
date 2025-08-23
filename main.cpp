@@ -12,6 +12,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
+#include <signal.h>
 
 static bool debug_lf_mode() {
 	const char* p = std::getenv("FTIRC_DEBUG_LF");
@@ -107,6 +108,8 @@ static void close_and_remove(int fd, std::vector<int>& clients,
 }
 
 int main(void) {
+
+	signal(SIGPIPE, SIG_IGN);
 	std::vector<int> clients;
 	std::vector<pollfd> pfds;
 	std::map<int, std::string> inbuf;
