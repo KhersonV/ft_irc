@@ -11,6 +11,32 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <cstdlib>
+
+static bool debug_lf_mode() {
+    const char* p = std::getenv("FTIRC_DEBUG_LF");
+    return p && *p; // любая непустая строка -> включено
+}
+
+static bool cut_line(std::string &ib, std::string &line, bool debugLF)
+{
+	if (debugLF) {
+
+	std::string::size_type pos = ib.find('\n');
+	if (pos == std::string::npos) return false;
+		line = ib.substr(0, pos);
+		ib.erase(0, pos + 1);
+		if (!line.empty() && line[line.size()-1] == '\r')
+			line.erase(line.size()-1);
+		return true;
+    } else {
+		std::string::size_type pos = ib.find("\r\n");
+		if (pos == std::string::npos) return false;
+		line = ib.substr(0, pos);
+		ib.erase(0, pos + 2);
+		return true;
+    }
+}
 
 
 // фунция перевода fd в Non-block мод (чтобы не вис при accept(), send(), и тд)
@@ -71,15 +97,18 @@ int create_listen_socket(int port) {
 	return fd;
 }
 
-static void close_and_remove(int fd, std::vector<int>& clients) {
+static void close_and_remove(int fd, std::vector<int>& clients,
+							std::map<int,std::string>& inbuf) {
     ::close(fd);
     clients.erase(std::remove(clients.begin(), clients.end(), fd), clients.end());
-    std::cout << "Close fd=" << fd << "\n";
+	inbuf.erase(fd);
+	std::cout << "Close fd=" << fd << "\n";
 }
 
 int main(void) {
 	std::vector<int> clients;
 	std::vector<pollfd> pfds;
+	std::map<int, std::string> inbuf;
 
 
 	int port = 6667;
@@ -118,6 +147,7 @@ int main(void) {
 				set_nonblocking(cfd);
 				std::cout << "New client fd=" << cfd << "\n";
 				clients.push_back(cfd);
+				inbuf[cfd] = "";
 				continue;
 			}
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -129,23 +159,24 @@ int main(void) {
 		int fd = pfds[i].fd;
 		short re = pfds[i].revents;
 
-		if (re & (POLLERR | POLLHUP | POLLNVAL)) {
-			close_and_remove(fd, clients);
-			continue;
-		}
 
 		if (re & POLLIN) {
 			char buf[4096];
 			for (;;) {
 				ssize_t n = recv(fd, buf, sizeof(buf), 0);
 				if (n > 0) {
-					std::cout << "Read fd=" << fd << " bytes=" << n
-							<< " data=\"" << std::string(buf, n) << "\"\n";
+					inbuf[fd].append(buf, n);
+
+					for(;;) {
+							std::string line;
+							if (!cut_line(inbuf[fd], line, debug_lf_mode())) break;
+							std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
+					}
 					continue;
 				}
 				if (n == 0) {
 					std::cout << "EOF fd=" << fd << "\n";
-					close_and_remove(fd, clients);
+					close_and_remove(fd, clients, inbuf);
 					break;
 				}
 
@@ -153,9 +184,14 @@ int main(void) {
 					break;
 				}
 				std::perror("recv");
-				close_and_remove(fd, clients);
+				close_and_remove(fd, clients, inbuf);
 				break;
 			}
+		}
+
+				if (re & (POLLERR | POLLHUP | POLLNVAL)) {
+			close_and_remove(fd, clients, inbuf);
+			continue;
 		}
 	}
 
