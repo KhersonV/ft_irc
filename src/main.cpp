@@ -16,7 +16,8 @@
 
 #include "utils.hpp"
 
-int main(void) {
+int main(void)
+{
 	signal(SIGPIPE, SIG_IGN);
 
 	std::vector<int> clients;
@@ -29,7 +30,8 @@ int main(void) {
 	if (server_fd < 0)
 		return 1;
 
-	for (;;) {
+	for (;;)
+	{
 		pfds.clear();
 
 		pollfd sp;
@@ -38,29 +40,35 @@ int main(void) {
 		sp.revents = 0;
 		pfds.push_back(sp);
 
-		for (size_t i = 0; i < clients.size(); ++i) {
+		for (size_t i = 0; i < clients.size(); ++i)
+		{
 			pollfd p;
 			p.fd = clients[i];
 			p.events = POLLIN;
 			p.revents = 0;
-			if (!outbuf[clients[i]].empty()) {
+			if (!outbuf[clients[i]].empty())
+			{
 				p.events |= POLLOUT;
 			}
 			pfds.push_back(p);
 		}
 
 		int ret = poll(&pfds[0], pfds.size(), -1);
-		if (ret < 0) {
+		if (ret < 0)
+		{
 			if (errno == EINTR)
 				continue;
 			std::perror("poll");
 			break;
 		}
 
-		if (pfds[0].revents & POLLIN) {
-			for (;;) {
+		if (pfds[0].revents & POLLIN)
+		{
+			for (;;)
+			{
 				int cfd = accept(server_fd, 0, 0);
-				if (cfd >= 0) {
+				if (cfd >= 0)
+				{
 					ftirc::set_nonblocking(cfd);
 					std::cout << "New client fd=" << cfd << "\n";
 					clients.push_back(cfd);
@@ -75,24 +83,36 @@ int main(void) {
 			}
 		}
 
-		for (size_t i = 1; i < pfds.size(); ++i) {
+		for (size_t i = 1; i < pfds.size(); ++i)
+		{
 			int fd = pfds[i].fd;
 			short re = pfds[i].revents;
+			bool closed = false;
 
-			if (re & POLLIN) {
+			if (re & (POLLERR | POLLHUP | POLLNVAL))
+			{
+				ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+				continue;
+			}
+
+			if (re & POLLIN)
+			{
 				char buf[4096];
-				for (;;) {
+				for (;;)
+				{
 					ssize_t n = recv(fd, buf, sizeof(buf), 0);
 					if (n > 0) {
 						inbuf[fd].append(buf, n);
 
-						for (;;) {
+						for (;;)
+						{
 							std::string line;
 							if (!ftirc::cut_line(inbuf[fd], line, ftirc::debug_lf_mode())) break;
 							std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
 
 							std::string s = line;
-							if (!s.empty() && s[0] == ':') {
+							if (!s.empty() && s[0] == ':')
+							{
 								size_t sp = s.find(' ');
 								if (sp != std::string::npos) s.erase(0, sp + 1);
 								else s.clear();
@@ -100,59 +120,80 @@ int main(void) {
 
 							std::string cmd, rest;
 							size_t sp = s.find(' ');
-							if (sp == std::string::npos) { cmd = s; rest = ""; }
-							else { cmd = s.substr(0, sp); rest = s.substr(sp + 1); }
+							if (sp == std::string::npos)
+							{
+								cmd = s; rest = "";
+							}
+							else
+							{
+								cmd = s.substr(0, sp); rest = s.substr(sp + 1);
+							}
 							cmd = ftirc::to_upper(cmd);
 
-							if (cmd == "PING") {
+							if (cmd == "PING")
+							{
 								std::string token = rest;
 								if (!token.empty() && token[0] == ':') token.erase(0, 1);
 								if (token.empty()) token = "ft_irc";
 								outbuf[fd] += "PONG :" + token + "\r\n";
-							} else if (cmd == "QUIT") {
+							}
+							else if (cmd == "QUIT") 
+							{
 								ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+								closed = true;   
 								break;
-							} else {
+							}
+							else
+							{
 								outbuf[fd] += "You said: " + line + "\r\n";
 							}
-
 						}
+						if (closed) break;
 						continue;
 					}
-					if (n == 0) {
+					if (n == 0) 
+					{
 						std::cout << "EOF fd=" << fd << "\n";
 						ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+						closed = true;   
 						break;
 					}
-					if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					if (errno == EAGAIN || errno == EWOULDBLOCK)
+					{
 						break;
 					}
 					std::perror("recv");
 					ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+					closed = true;   
 					break;
 				}
 			}
 
-			if (re & POLLOUT) {
+			if (closed) continue;  
+
+			if (re & POLLOUT)
+			{
 				std::string &q = outbuf[fd];
-				if (!q.empty()) {
+				if (!q.empty())
+				{
 					ssize_t n = send(fd, q.c_str(), q.size(), 0);
-					if (n > 0) {
+					if (n > 0)
+					{
 						q.erase(0, n);
-					} else if (n < 0) {
-						if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					}
+					else if (n < 0)
+					{
+						if (errno == EAGAIN || errno == EWOULDBLOCK)
+						{
 							// later
-						} else {
+						}
+						else
+						{
 							std::perror("send");
 							ftirc::close_and_remove(fd, clients, inbuf, outbuf);
 						}
 					}
 				}
-			}
-
-			if (re & (POLLERR | POLLHUP | POLLNVAL)) {
-				ftirc::close_and_remove(fd, clients, inbuf, outbuf);
-				continue;
 			}
 		}
 	}
