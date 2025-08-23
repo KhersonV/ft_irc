@@ -16,6 +16,70 @@
 
 #include "utils.hpp"
 
+static bool process_line(int fd, const std::string& line,
+						 std::map<int,std::string>& outbuf,
+						 std::vector<int>& clients,
+						 std::map<int,std::string>& inbuf)
+{
+	std::string s = line;
+	if (!s.empty() && s[0] == ':') {
+		size_t sp = s.find(' ');
+		if (sp != std::string::npos) s.erase(0, sp + 1);
+		else s.clear();
+	}
+	size_t sp = s.find(' ');
+	std::string cmd  = (sp == std::string::npos) ? s : s.substr(0, sp);
+	std::string rest = (sp == std::string::npos) ? "" : s.substr(sp + 1);
+	cmd = ftirc::to_upper(cmd);
+
+	if (cmd == "PING") {
+		if (!rest.empty() && rest[0] == ':') rest.erase(0, 1);
+		if (rest.empty()) rest = "ft_irc";
+		outbuf[fd] += "PONG :" + rest + "\r\n";
+		return false;
+	}
+	if (cmd == "QUIT") {
+		ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+		return true;
+	}
+	outbuf[fd] += "You said: " + line + "\r\n";
+	return false;
+}
+
+static bool handle_read_ready(int fd,
+							  std::map<int,std::string>& inbuf,
+							  std::map<int,std::string>& outbuf,
+							  std::vector<int>& clients)
+{
+	char buf[4096];
+	for (;;) {
+		ssize_t n = recv(fd, buf, sizeof(buf), 0);
+		if (n > 0) {
+			inbuf[fd].append(buf, n);
+
+			for (;;) {
+				std::string line;
+				if (!ftirc::cut_line(inbuf[fd], line, ftirc::debug_lf_mode())) break;
+				std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
+				if (process_line(fd, line, outbuf, clients, inbuf))
+					return true;
+			}
+			continue;
+		}
+		if (n == 0) {
+			std::cout << "EOF fd=" << fd << "\n";
+			ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+			return true;
+		}
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return false;
+		}
+		std::perror("recv");
+		ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+		return true;
+	}
+}
+
 int main(void)
 {
 	signal(SIGPIPE, SIG_IGN);
@@ -97,78 +161,8 @@ int main(void)
 
 			if (re & POLLIN)
 			{
-				char buf[4096];
-				for (;;)
-				{
-					ssize_t n = recv(fd, buf, sizeof(buf), 0);
-					if (n > 0) {
-						inbuf[fd].append(buf, n);
-
-						for (;;)
-						{
-							std::string line;
-							if (!ftirc::cut_line(inbuf[fd], line, ftirc::debug_lf_mode())) break;
-							std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
-
-							std::string s = line;
-							if (!s.empty() && s[0] == ':')
-							{
-								size_t sp = s.find(' ');
-								if (sp != std::string::npos) s.erase(0, sp + 1);
-								else s.clear();
-							}
-
-							std::string cmd, rest;
-							size_t sp = s.find(' ');
-							if (sp == std::string::npos)
-							{
-								cmd = s; rest = "";
-							}
-							else
-							{
-								cmd = s.substr(0, sp); rest = s.substr(sp + 1);
-							}
-							cmd = ftirc::to_upper(cmd);
-
-							if (cmd == "PING")
-							{
-								std::string token = rest;
-								if (!token.empty() && token[0] == ':') token.erase(0, 1);
-								if (token.empty()) token = "ft_irc";
-								outbuf[fd] += "PONG :" + token + "\r\n";
-							}
-							else if (cmd == "QUIT") 
-							{
-								ftirc::close_and_remove(fd, clients, inbuf, outbuf);
-								closed = true;   
-								break;
-							}
-							else
-							{
-								outbuf[fd] += "You said: " + line + "\r\n";
-							}
-						}
-						if (closed) break;
-						continue;
-					}
-					if (n == 0) 
-					{
-						std::cout << "EOF fd=" << fd << "\n";
-						ftirc::close_and_remove(fd, clients, inbuf, outbuf);
-						closed = true;   
-						break;
-					}
-					if (errno == EAGAIN || errno == EWOULDBLOCK)
-					{
-						break;
-					}
-					std::perror("recv");
-					ftirc::close_and_remove(fd, clients, inbuf, outbuf);
-					closed = true;   
-					break;
-				}
+				closed = handle_read_ready(fd, inbuf, outbuf, clients);
 			}
-
 			if (closed) continue;  
 
 			if (re & POLLOUT)
