@@ -2,6 +2,7 @@
 #define UTILS_HPP
 
 #include <string>
+#include <cctype>
 #include <vector>
 #include <map>
 
@@ -19,6 +20,8 @@ void close_and_remove(int fd,
 					  std::vector<int>& clients,
 					  std::map<int, std::string>& inbuf,
 					  std::map<int, std::string>& outbuf);
+
+std::string to_upper(std::string s);
 
 } 
 

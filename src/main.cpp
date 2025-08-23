@@ -90,7 +90,32 @@ int main(void) {
 							std::string line;
 							if (!ftirc::cut_line(inbuf[fd], line, ftirc::debug_lf_mode())) break;
 							std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
-							outbuf[fd] += "You said: " + line + "\r\n";
+
+							std::string s = line;
+							if (!s.empty() && s[0] == ':') {
+								size_t sp = s.find(' ');
+								if (sp != std::string::npos) s.erase(0, sp + 1);
+								else s.clear();
+							}
+
+							std::string cmd, rest;
+							size_t sp = s.find(' ');
+							if (sp == std::string::npos) { cmd = s; rest = ""; }
+							else { cmd = s.substr(0, sp); rest = s.substr(sp + 1); }
+							cmd = ftirc::to_upper(cmd);
+
+							if (cmd == "PING") {
+								std::string token = rest;
+								if (!token.empty() && token[0] == ':') token.erase(0, 1);
+								if (token.empty()) token = "ft_irc";
+								outbuf[fd] += "PONG :" + token + "\r\n";
+							} else if (cmd == "QUIT") {
+								ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+								break;
+							} else {
+								outbuf[fd] += "You said: " + line + "\r\n";
+							}
+
 						}
 						continue;
 					}

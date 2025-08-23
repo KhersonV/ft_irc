@@ -100,4 +100,11 @@ void close_and_remove(int fd,
 	std::cout << "Close fd=" << fd << "\n";
 }
 
+
+ std::string to_upper(std::string s) {
+    for (size_t i = 0; i < s.size(); ++i)
+        s[i] = std::toupper(static_cast<unsigned char>(s[i]));
+    return s;
+}
+
 }
