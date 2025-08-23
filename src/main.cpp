@@ -16,6 +16,28 @@
 
 #include "utils.hpp"
 
+static void handle_write_ready(int fd,
+							   std::map<int,std::string>& outbuf,
+							   std::vector<int>& clients,
+							   std::map<int,std::string>& inbuf)
+{
+	std::map<int,std::string>::iterator it = outbuf.find(fd);
+	if (it == outbuf.end()) return;
+	std::string &q = it->second;
+	if (q.empty()) return;
+
+	ssize_t n = send(fd, q.c_str(), q.size(), 0);
+	if (n > 0) {
+		q.erase(0, n);
+		return;
+	}
+	if (n < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+		std::perror("send");
+		ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+	}
+}
+
 static bool process_line(int fd, const std::string& line,
 						 std::map<int,std::string>& outbuf,
 						 std::vector<int>& clients,
@@ -167,27 +189,7 @@ int main(void)
 
 			if (re & POLLOUT)
 			{
-				std::string &q = outbuf[fd];
-				if (!q.empty())
-				{
-					ssize_t n = send(fd, q.c_str(), q.size(), 0);
-					if (n > 0)
-					{
-						q.erase(0, n);
-					}
-					else if (n < 0)
-					{
-						if (errno == EAGAIN || errno == EWOULDBLOCK)
-						{
-							// later
-						}
-						else
-						{
-							std::perror("send");
-							ftirc::close_and_remove(fd, clients, inbuf, outbuf);
-						}
-					}
-				}
+				handle_write_ready(fd, outbuf, clients, inbuf);
 			}
 		}
 	}
