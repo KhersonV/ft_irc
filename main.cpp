@@ -14,14 +14,13 @@
 #include <cstdlib>
 
 static bool debug_lf_mode() {
-    const char* p = std::getenv("FTIRC_DEBUG_LF");
-    return p && *p; // любая непустая строка -> включено
+	const char* p = std::getenv("FTIRC_DEBUG_LF");
+	return p && *p;
 }
 
 static bool cut_line(std::string &ib, std::string &line, bool debugLF)
 {
 	if (debugLF) {
-
 	std::string::size_type pos = ib.find('\n');
 	if (pos == std::string::npos) return false;
 		line = ib.substr(0, pos);
@@ -35,7 +34,7 @@ static bool cut_line(std::string &ib, std::string &line, bool debugLF)
 		line = ib.substr(0, pos);
 		ib.erase(0, pos + 2);
 		return true;
-    }
+	}
 }
 
 
@@ -98,10 +97,12 @@ int create_listen_socket(int port) {
 }
 
 static void close_and_remove(int fd, std::vector<int>& clients,
-							std::map<int,std::string>& inbuf) {
-    ::close(fd);
+							std::map<int,std::string>& inbuf,
+							std::map<int,std::string>& outbuf) {
+    close(fd);
     clients.erase(std::remove(clients.begin(), clients.end(), fd), clients.end());
 	inbuf.erase(fd);
+	outbuf.erase(fd);
 	std::cout << "Close fd=" << fd << "\n";
 }
 
@@ -109,6 +110,7 @@ int main(void) {
 	std::vector<int> clients;
 	std::vector<pollfd> pfds;
 	std::map<int, std::string> inbuf;
+	std::map<int, std::string> outbuf;
 
 
 	int port = 6667;
@@ -130,6 +132,9 @@ int main(void) {
 			p.fd = clients[i];
 			p.events = POLLIN;
 			p.revents = 0;
+			if (!outbuf[clients[i]].empty()) {
+				p.events |= POLLOUT;
+			}
 			pfds.push_back(p);
 		}
 
@@ -148,6 +153,7 @@ int main(void) {
 				std::cout << "New client fd=" << cfd << "\n";
 				clients.push_back(cfd);
 				inbuf[cfd] = "";
+				outbuf[cfd] = "";
 				continue;
 			}
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -171,12 +177,13 @@ int main(void) {
 							std::string line;
 							if (!cut_line(inbuf[fd], line, debug_lf_mode())) break;
 							std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
+							outbuf[fd] += "You said: " + line + "\r\n";
 					}
 					continue;
 				}
 				if (n == 0) {
 					std::cout << "EOF fd=" << fd << "\n";
-					close_and_remove(fd, clients, inbuf);
+					close_and_remove(fd, clients, inbuf, outbuf);
 					break;
 				}
 
@@ -184,13 +191,29 @@ int main(void) {
 					break;
 				}
 				std::perror("recv");
-				close_and_remove(fd, clients, inbuf);
+				close_and_remove(fd, clients, inbuf, outbuf);
 				break;
 			}
 		}
+		if (re & POLLOUT) {
+			std::string &q = outbuf[fd];
+			if (!q.empty()) {
+				ssize_t n = send(fd, q.c_str(), q.size(), 0);
+				if (n > 0) {
+					q.erase(0, n);
+				} else if (n < 0) {
+					if (errno == EAGAIN || errno == EWOULDBLOCK) {
+						//later
+					} else {
+						std::perror("send");
+						close_and_remove(fd, clients, inbuf, outbuf);
+					}
+				}
+			}
+		}
 
-				if (re & (POLLERR | POLLHUP | POLLNVAL)) {
-			close_and_remove(fd, clients, inbuf);
+		if (re & (POLLERR | POLLHUP | POLLNVAL)) {
+			close_and_remove(fd, clients, inbuf, outbuf);
 			continue;
 		}
 	}
