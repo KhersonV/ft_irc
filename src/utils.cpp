@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include "Client.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -89,14 +90,12 @@ int create_listen_socket(int port) {
 }
 
 void close_and_remove(int fd,
-					  std::vector<int>& clients,
-					  std::map<int, std::string>& inbuf,
-					  std::map<int, std::string>& outbuf)
+					  std::vector<int>& fds,
+					  std::map<int, Client>& clients)
 {
 	close(fd);
-	clients.erase(std::remove(clients.begin(), clients.end(), fd), clients.end());
-	inbuf.erase(fd);
-	outbuf.erase(fd);
+	fds.erase(std::remove(fds.begin(), fds.end(), fd), fds.end());
+	clients.erase(fd);
 	std::cout << "Close fd=" << fd << "\n";
 }
 

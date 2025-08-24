@@ -15,33 +15,34 @@
 #include <signal.h>
 
 #include "utils.hpp"
+#include "Client.hpp"
 
 static void handle_write_ready(int fd,
-							   std::map<int,std::string>& outbuf,
-							   std::vector<int>& clients,
-							   std::map<int,std::string>& inbuf)
+							   std::map<int, Client>& clients,
+							   std::vector<int>& fds
+							)
 {
-	std::map<int,std::string>::iterator it = outbuf.find(fd);
-	if (it == outbuf.end()) return;
-	std::string &q = it->second;
-	if (q.empty()) return;
+	std::map<int, Client>::iterator it = clients.find(fd);
+	if (it == clients.end()) return;
+	Client &c = it->second;
+	if (c.out.empty()) return;
 
-	ssize_t n = send(fd, q.c_str(), q.size(), 0);
+	ssize_t n = send(fd, c.out.c_str(), c.out.size(), 0);
 	if (n > 0) {
-		q.erase(0, n);
+		c.out.erase(0, n);
 		return;
 	}
 	if (n < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) return;
 		std::perror("send");
-		ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+		ftirc::close_and_remove(fd, fds, clients);
 	}
 }
 
-static bool process_line(int fd, const std::string& line,
-						 std::map<int,std::string>& outbuf,
-						 std::vector<int>& clients,
-						 std::map<int,std::string>& inbuf)
+static bool process_line(int fd,
+						const std::string& line,
+						std::map<int, Client>& clients,
+						 std::vector<int>& fds)
 {
 	std::string s = line;
 	if (!s.empty() && s[0] == ':') {
@@ -57,47 +58,47 @@ static bool process_line(int fd, const std::string& line,
 	if (cmd == "PING") {
 		if (!rest.empty() && rest[0] == ':') rest.erase(0, 1);
 		if (rest.empty()) rest = "ft_irc";
-		outbuf[fd] += "PONG :" + rest + "\r\n";
+		clients[fd].out += "PONG :" + rest + "\r\n";
 		return false;
 	}
 	if (cmd == "QUIT") {
-		ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+		ftirc::close_and_remove(fd, fds, clients);
 		return true;
 	}
-	outbuf[fd] += "You said: " + line + "\r\n";
+	clients[fd].out += "You said: " + line + "\r\n";
 	return false;
 }
 
 static bool handle_read_ready(int fd,
-							  std::map<int,std::string>& inbuf,
-							  std::map<int,std::string>& outbuf,
-							  std::vector<int>& clients)
+							  std::map<int, Client> clients,
+							  std::vector<int>& fds)
 {
+	Client &c = clients[fd];
 	char buf[4096];
+
 	for (;;) {
 		ssize_t n = recv(fd, buf, sizeof(buf), 0);
 		if (n > 0) {
-			inbuf[fd].append(buf, n);
-
+			c.in.append(buf, n);
 			for (;;) {
 				std::string line;
-				if (!ftirc::cut_line(inbuf[fd], line, ftirc::debug_lf_mode())) break;
+				if (!ftirc::cut_line(c.in, line, ftirc::debug_lf_mode())) break;
 				std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
-				if (process_line(fd, line, outbuf, clients, inbuf))
+				if (process_line(fd, line, clients, fds))
 					return true;
 			}
 			continue;
 		}
 		if (n == 0) {
 			std::cout << "EOF fd=" << fd << "\n";
-			ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+			ftirc::close_and_remove(fd, fds, clients);
 			return true;
 		}
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return false;
 		}
 		std::perror("recv");
-		ftirc::close_and_remove(fd, clients, inbuf, outbuf);
+		ftirc::close_and_remove(fd, fds, clients);
 		return true;
 	}
 }
@@ -106,10 +107,9 @@ int main(void)
 {
 	signal(SIGPIPE, SIG_IGN);
 
-	std::vector<int> clients;
 	std::vector<pollfd> pfds;
-	std::map<int, std::string> inbuf;
-	std::map<int, std::string> outbuf;
+	std::vector<int> fds;
+	std::map<int, Client> clients;
 
 	int port = 6667;
 	int server_fd = ftirc::create_listen_socket(port);
@@ -126,13 +126,14 @@ int main(void)
 		sp.revents = 0;
 		pfds.push_back(sp);
 
-		for (size_t i = 0; i < clients.size(); ++i)
+		for (size_t i = 0; i < fds.size(); ++i)
 		{
+			int cfd = fds[i];
 			pollfd p;
-			p.fd = clients[i];
+			p.fd = cfd;
 			p.events = POLLIN;
 			p.revents = 0;
-			if (!outbuf[clients[i]].empty())
+			if (!clients[cfd].out.empty())
 			{
 				p.events |= POLLOUT;
 			}
@@ -157,9 +158,8 @@ int main(void)
 				{
 					ftirc::set_nonblocking(cfd);
 					std::cout << "New client fd=" << cfd << "\n";
-					clients.push_back(cfd);
-					inbuf[cfd] = "";
-					outbuf[cfd] = "";
+					fds.push_back(cfd);
+					clients.insert(std::make_pair(cfd, Client(cfd)));
 					continue;
 				}
 				if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -175,21 +175,20 @@ int main(void)
 			short re = pfds[i].revents;
 			bool closed = false;
 
-			if (re & (POLLERR | POLLHUP | POLLNVAL))
-			{
-				ftirc::close_and_remove(fd, clients, inbuf, outbuf);
-				continue;
-			}
-
 			if (re & POLLIN)
 			{
-				closed = handle_read_ready(fd, inbuf, outbuf, clients);
+				closed = handle_read_ready(fd, clients, fds);
 			}
-			if (closed) continue;  
+			if (closed) continue;
 
 			if (re & POLLOUT)
 			{
-				handle_write_ready(fd, outbuf, clients, inbuf);
+				handle_write_ready(fd, clients, fds);
+			}
+			if (re & (POLLERR | POLLHUP | POLLNVAL))
+			{
+				ftirc::close_and_remove(fd, fds, clients);
+				continue;
 			}
 		}
 	}
