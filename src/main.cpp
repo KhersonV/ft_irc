@@ -20,7 +20,7 @@
 #include "State.hpp"
 #include "Net.hpp"
 
-int main(void)
+int main(int argc, char** argv)
 {
 	signal(SIGPIPE, SIG_IGN);
 
@@ -29,6 +29,13 @@ int main(void)
 	std::map<int, Client> clients;
 
 	int port = 6667;
+
+	if (argc >= 2)
+		port = std::atoi(argv[1]);
+	if (argc >= 3)
+		g_state.server_password = argv[2];
+	else g_state.server_password = "secret";
+
 	int server_fd = ftirc::create_listen_socket(port);
 	if (server_fd < 0)
 		return 1;
@@ -73,10 +80,7 @@ int main(void)
 				int cfd = accept(server_fd, 0, 0);
 				if (cfd >= 0)
 				{
-					ftirc::set_nonblocking(cfd);
-					std::cout << "New client fd=" << cfd << "\n";
-					fds.push_back(cfd);
-					clients.insert(std::make_pair(cfd, Client(cfd)));
+					add_client(cfd, fds, clients);
 					continue;
 				}
 				if (errno == EAGAIN || errno == EWOULDBLOCK)

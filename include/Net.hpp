@@ -11,4 +11,7 @@ void	handle_write_ready(int fd, std::map<int, Client> &clients,
 bool	handle_read_ready(int fd, std::map<int, Client> &clients,
 			std::vector<int> &fds);
 
+void	add_client(int cfd, std::vector<int> &fds, std::map<int,
+			Client> &clients);
+
 #endif

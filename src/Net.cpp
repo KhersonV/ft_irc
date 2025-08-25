@@ -74,3 +74,12 @@ bool	handle_read_ready(int fd, std::map<int, Client> &clients,
 		return (true);
 	}
 }
+
+void add_client(int cfd,
+	std::vector<int>& fds, std::map<int, Client>& clients)
+{
+	ftirc::set_nonblocking(cfd);
+	std::cout << "New client fd=" << cfd << "\n";
+	fds.push_back(cfd);
+	clients.insert(std::make_pair(cfd, Client(cfd)));
+}
