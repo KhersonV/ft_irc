@@ -11,6 +11,25 @@ static std::string lower_str(const std::string& nickname) {
 	return result;
 }
 
+static bool is_valid_nick(const std::string& nickname) {
+	if (nickname.empty() || nickname.size() > 30) {
+		return false;
+	}
+	for (size_t i = 0; i < nickname.size(); ++i) {
+		unsigned char c = nickname[i];
+		if (std::isalnum(c)) {
+			continue;
+		}
+		switch (c) {
+			case '-': case '_': case '[': case ']': case '\\':
+			case '`': case '^': case '{': case '}':
+				continue;
+			default: return false;
+		}
+	}
+	return true;
+}
+
 std::string first_token(const std::string& s)
 {
 	std::string::size_type ws = s.find(' ');
@@ -70,6 +89,10 @@ bool process_line(int fd,
 		std::string nick = rest;
 		if (!nick.empty() && nick[0] == ':')
 			nick.erase(0, 1);
+		if (!is_valid_nick(nick)) {
+			send_numeric(clients, fd, 432, cl.nick, nick, "Nick contains invalid characters");
+			return false;
+		}
 
 		std::string key = lower_str(nick);
 		if (g_state.nick2fd.find(key) != g_state.nick2fd.end()
