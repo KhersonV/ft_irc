@@ -43,6 +43,17 @@ std::string first_token(const std::string& s)
 	return (ws == std::string::npos) ? s : s.substr(0, ws);
 }
 
+static void send_to_channel(std::map<int, Client>& clients,
+							const Channel& ch,
+							const std::string& line,
+							int except_fd)
+{
+	for (std::set<int>::iterator it = ch.members.begin(); it != ch.members.end(); ++it) {
+		if (except_fd != -1 && *it == except_fd) continue;
+		enqueue_line(clients, *it, line);
+	}
+}
+
 bool process_line(int fd,
 						const std::string& line,
 						std::map<int, Client>& clients,
