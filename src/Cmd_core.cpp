@@ -3,6 +3,12 @@
 #include "Proto.hpp"
 #include "State.hpp"
 
+std::string first_token(const std::string& s)
+{
+	std::string::size_type ws = s.find(' ');
+	return (ws == std::string::npos) ? s : s.substr(0, ws);
+}
+
 bool process_line(int fd,
 						const std::string& line,
 						std::map<int, Client>& clients,
@@ -44,6 +50,32 @@ bool process_line(int fd,
 			return false;
 		}
 		cl.pass_ok = true;
+		return false;
+	}
+	if (cmd == "NICK")
+	{
+		if (rest.empty())
+		{
+			send_numeric(clients, fd, 431, cl.nick, "", "No nickname given");
+			return false;
+		}
+		std::string nick = rest;
+		if (!nick.empty() && nick[0] == ':')
+			nick.erase(0, 1);
+		nick = first_token(nick);
+		if (g_state.nick2fd.find(nick) != g_state.nick2fd.end())
+		{
+			send_numeric(clients, fd, 433, cl.nick, nick, "Nickname is already in use");
+			return false;
+		}
+		if (!cl.nick.empty())
+		{
+			std::map<std::string,int>::iterator old = g_state.nick2fd.find(cl.nick);
+			if (old != g_state.nick2fd.end() && old->second == fd)
+				g_state.nick2fd.erase(old);
+		}
+		cl.nick = nick;
+		g_state.nick2fd[nick] = fd;
 		return false;
 	}
 	if (cmd == "PING") 
