@@ -30,6 +30,21 @@ static bool is_valid_nick(const std::string& nickname) {
 	return true;
 }
 
+static void finish_register(std::map<int, Client>& clients, int fd) {
+	Client &c = clients[fd];
+
+	if (c.registered) return ;
+
+	if (c.nick.empty() || c.user.empty()) return ;
+
+	if (c.nick.empty() || c.user.empty()) return ;
+
+	c.registered = true;
+
+	send_numeric(clients, fd, 001, c.nick, "", "Welcome to ft_irc " + c.nick);
+	send_numeric(clients, fd, 002, c.nick, "", "Your host is ft_irc");
+}
+
 std::string first_token(const std::string& s)
 {
 	std::string::size_type ws = s.find(' ');
@@ -77,6 +92,7 @@ bool process_line(int fd,
 			return false;
 		}
 		cl.pass_ok = true;
+		finish_register(clients, fd);
 		return false;
 	}
 	if (cmd == "NICK")
@@ -109,7 +125,46 @@ bool process_line(int fd,
 		}
 		cl.nick = nick;
 		g_state.nick2fd[key] = fd;
+		finish_register(clients, fd);
 		return false;
+	}
+	if (cmd == "USER") {
+		if (cl.registered) {
+			send_numeric(clients, fd, 462, cl.nick, "", "You may not reregister");
+			return false;
+		}
+
+		if (rest.empty()) {
+			send_numeric(clients, fd, 461, cl.nick, "USER", "Not enough parameters");
+			return false;
+		}
+
+		std::string username = rest;
+		size_t sp1 = username.find(' ');
+		if (sp1 != std::string::npos) {
+			username.erase(sp1);
+		}
+
+		std::string realname;
+		size_t pos_trailing = rest.find(" :");
+		if (pos_trailing != std::string::npos) {
+			realname = rest.substr(pos_trailing + 2);
+		} else {
+			send_numeric(clients, fd, 461, cl.nick, "USER", "Not enough parameters");
+			return false;
+		}
+
+		if(username.empty()) {
+			send_numeric(clients, fd, 461, cl.nick, "USER", "Not enough parameters");
+			return false;
+		}
+
+		cl.user = username;
+		cl.realname = realname;
+
+		finish_register(clients, fd);
+		return false;
+
 	}
 	if (cmd == "PING")
 	{
