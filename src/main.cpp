@@ -39,6 +39,14 @@ static void handle_write_ready(int fd,
 	}
 }
 
+inline void enqueue_line(std::map<int, Client>& clients, int fd, const std::string& s) {
+	std::map<int, Client>::iterator it = clients.find(fd);
+	if (it == clients.end()) return;
+	it->second.out += s;
+	if (it->second.out.size() < 2 || it->second.out.substr(it->second.out.size()-2) != "\r\n")
+		it->second.out += "\r\n";
+}
+
 static bool process_line(int fd,
 						const std::string& line,
 						std::map<int, Client>& clients,
@@ -54,26 +62,29 @@ static bool process_line(int fd,
 	std::string cmd  = (sp == std::string::npos) ? s : s.substr(0, sp);
 	std::string rest = (sp == std::string::npos) ? "" : s.substr(sp + 1);
 	cmd = ftirc::to_upper(cmd);
-
+	if (cmd.empty())
+		return false;
 	if (cmd == "PING") {
 		if (!rest.empty() && rest[0] == ':') rest.erase(0, 1);
 		if (rest.empty()) rest = "ft_irc";
-		clients[fd].out += "PONG :" + rest + "\r\n";
+		enqueue_line(clients, fd, "PONG :" + rest);
 		return false;
 	}
 	if (cmd == "QUIT") {
 		ftirc::close_and_remove(fd, fds, clients);
 		return true;
 	}
-	clients[fd].out += "You said: " + line + "\r\n";
+	enqueue_line(clients, fd, "You said: " + line);
 	return false;
 }
 
 static bool handle_read_ready(int fd,
-							  std::map<int, Client> clients,
+							  std::map<int, Client>& clients,
 							  std::vector<int>& fds)
 {
-	Client &c = clients[fd];
+	std::map<int, Client>::iterator it = clients.find(fd);
+		if (it == clients.end()) return true;
+	Client &c = it->second;
 	char buf[4096];
 
 	for (;;) {
@@ -133,10 +144,11 @@ int main(void)
 			p.fd = cfd;
 			p.events = POLLIN;
 			p.revents = 0;
-			if (!clients[cfd].out.empty())
-			{
+
+			std::map<int, Client>::iterator it = clients.find(cfd);
+
+			if (it != clients.end() && !it->second.out.empty())
 				p.events |= POLLOUT;
-			}
 			pfds.push_back(p);
 		}
 
