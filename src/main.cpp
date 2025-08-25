@@ -16,6 +16,8 @@
 
 #include "utils.hpp"
 #include "Client.hpp"
+#include "Cmd_core.hpp"
+#include "State.hpp"
 
 static void handle_write_ready(int fd,
 							   std::map<int, Client>& clients,
@@ -37,45 +39,6 @@ static void handle_write_ready(int fd,
 		std::perror("send");
 		ftirc::close_and_remove(fd, fds, clients);
 	}
-}
-
-inline void enqueue_line(std::map<int, Client>& clients, int fd, const std::string& s) {
-	std::map<int, Client>::iterator it = clients.find(fd);
-	if (it == clients.end()) return;
-	it->second.out += s;
-	if (it->second.out.size() < 2 || it->second.out.substr(it->second.out.size()-2) != "\r\n")
-		it->second.out += "\r\n";
-}
-
-static bool process_line(int fd,
-						const std::string& line,
-						std::map<int, Client>& clients,
-						 std::vector<int>& fds)
-{
-	std::string s = line;
-	if (!s.empty() && s[0] == ':') {
-		size_t sp = s.find(' ');
-		if (sp != std::string::npos) s.erase(0, sp + 1);
-		else s.clear();
-	}
-	size_t sp = s.find(' ');
-	std::string cmd  = (sp == std::string::npos) ? s : s.substr(0, sp);
-	std::string rest = (sp == std::string::npos) ? "" : s.substr(sp + 1);
-	cmd = ftirc::to_upper(cmd);
-	if (cmd.empty())
-		return false;
-	if (cmd == "PING") {
-		if (!rest.empty() && rest[0] == ':') rest.erase(0, 1);
-		if (rest.empty()) rest = "ft_irc";
-		enqueue_line(clients, fd, "PONG :" + rest);
-		return false;
-	}
-	if (cmd == "QUIT") {
-		ftirc::close_and_remove(fd, fds, clients);
-		return true;
-	}
-	enqueue_line(clients, fd, "You said: " + line);
-	return false;
 }
 
 static bool handle_read_ready(int fd,
