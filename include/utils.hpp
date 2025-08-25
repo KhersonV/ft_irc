@@ -22,6 +22,8 @@ void close_and_remove(int fd,
 					  std::map<int, Client>& clients);
 
 std::string to_upper(std::string s);
+std::string lower_str(const std::string& nickname);
+
 
 }
 

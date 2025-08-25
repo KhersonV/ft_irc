@@ -1,5 +1,7 @@
 #include "utils.hpp"
 #include "Client.hpp"
+#include "State.hpp"
+
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -18,6 +20,14 @@ namespace ftirc {
 bool debug_lf_mode() {
 	const char* p = std::getenv("FTIRC_DEBUG_LF");
 	return p && *p;
+}
+
+std::string lower_str(const std::string& nickname) {
+	std::string result(nickname);
+	for (size_t i = 0; i < result.size(); ++i) {
+		result[i] = std::tolower(static_cast<unsigned char>(result[i]));
+	}
+	return result;
 }
 
 bool cut_line(std::string &ib, std::string &line, bool debugLF)
@@ -93,6 +103,13 @@ void close_and_remove(int fd,
 					  std::vector<int>& fds,
 					  std::map<int, Client>& clients)
 {
+	std::map<int, Client>::iterator it = clients.find(fd);
+	if (it != clients.end()) {
+		const std::string& nick = it->second.nick;
+		if (!nick.empty()) {
+			g_state.nick2fd.erase(lower_str(nick));
+		}
+	}
 	close(fd);
 	fds.erase(std::remove(fds.begin(), fds.end(), fd), fds.end());
 	clients.erase(fd);
@@ -101,9 +118,9 @@ void close_and_remove(int fd,
 
 
  std::string to_upper(std::string s) {
-    for (size_t i = 0; i < s.size(); ++i)
-        s[i] = std::toupper(static_cast<unsigned char>(s[i]));
-    return s;
+	for (size_t i = 0; i < s.size(); ++i)
+		s[i] = std::toupper(static_cast<unsigned char>(s[i]));
+	return s;
 }
 
 }

@@ -3,14 +3,6 @@
 #include "Proto.hpp"
 #include "State.hpp"
 
-static std::string lower_str(const std::string& nickname) {
-	std::string result(nickname);
-	for (size_t i = 0; i < result.size(); ++i) {
-		result[i] = std::tolower(static_cast<unsigned char>(result[i]));
-	}
-	return result;
-}
-
 static bool is_valid_nick(const std::string& nickname) {
 	if (nickname.empty() || nickname.size() > 30) {
 		return false;
@@ -71,6 +63,13 @@ bool process_line(int fd,
 	if (cmd.empty())
 		return false;
 	Client &cl = clients[fd];
+	// РАЗРЕШить только комманды для регистрации + понг + выход
+	// if (!cl.registered) {
+	// 	if (cmd != "PASS" && cmd != "NICK" && cmd != "USER" && cmd != "PING" && cmd != "QUII") {
+	// 		send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "", "You have not registered");
+	// 		return false;
+	// 	}
+	// }
 	if (cmd == "PASS")
 	{
 		if (cl.registered)
@@ -110,7 +109,7 @@ bool process_line(int fd,
 			return false;
 		}
 
-		std::string key = lower_str(nick);
+		std::string key = ftirc::lower_str(nick);
 		if (g_state.nick2fd.find(key) != g_state.nick2fd.end()
 			&& g_state.nick2fd[key] != fd)
 		{
@@ -119,7 +118,7 @@ bool process_line(int fd,
 		}
 		if (!cl.nick.empty())
 		{
-			std::map<std::string,int>::iterator old = g_state.nick2fd.find(lower_str(cl.nick));
+			std::map<std::string,int>::iterator old = g_state.nick2fd.find(ftirc::lower_str(cl.nick));
 			if (old != g_state.nick2fd.end() && old->second == fd)
 				g_state.nick2fd.erase(old);
 		}
