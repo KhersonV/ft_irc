@@ -128,6 +128,9 @@ bool process_line(int fd,
 		return false;
 	}
 	if (cmd == "USER") {
+
+		// стандартная комманда для обработки USER <username> <mode> <unused> :<realname>
+		// например USER alice 0 * :Alice для nc
 		if (cl.registered) {
 			send_numeric(clients, fd, 462, cl.nick, "", "You may not reregister");
 			return false;
@@ -164,6 +167,54 @@ bool process_line(int fd,
 		finish_register(clients, fd);
 		return false;
 
+	}
+	if (cmd == "PRIVMSG") {
+
+		// стандартная комманда для обработки PRIVMSG <target> :<text>
+
+		// удалить после включения верхнего ограничителя, это временно
+		if (!cl.registered) {
+			send_numeric(clients, fd, 451, cl.nick.empty()?"*":cl.nick, "", "You have not registered");
+			return false;
+		}
+
+		if (rest.empty()) {
+			send_numeric(clients, fd, 461, cl.nick, "", "No recipient given (PRIVMSG)");
+			return false;
+		}
+
+		std::string target = rest;
+		size_t sp = target.find(' ');
+		if (sp != std::string::npos)
+			target.erase(sp);
+
+		if (target.empty()) {
+			send_numeric(clients, fd, 411, cl.nick, "", "No recipient given (PRIVMSG)");
+			return false;
+		}
+
+		size_t pos_trailing = rest.find(" :");
+		if (pos_trailing == std::string::npos) {
+			send_numeric(clients, fd, 412, cl.nick, "", "No text to send");
+			return false;
+		}
+		std::string text = rest.substr(pos_trailing + 2);
+
+		std::map<std::string,int>::iterator itNick =
+			g_state.nick2fd.find(ftirc::lower_str(target));
+
+		if (itNick == g_state.nick2fd.end()) {
+			send_numeric(clients, fd, 401, cl.nick, target, "No such nick");
+			return false;
+		}
+
+		int rfd = itNick->second;
+
+		std::string line = ":" + (cl.nick.empty() ? "*" : cl.nick)
+					+ " PRIVMSG " + target + " :" + text;
+
+		enqueue_line(clients, rfd, line);
+		return false;
 	}
 	if (cmd == "PING")
 	{
