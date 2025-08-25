@@ -3,6 +3,14 @@
 #include "Proto.hpp"
 #include "State.hpp"
 
+static std::string lower_str(const std::string& nickname) {
+	std::string result(nickname);
+	for (size_t i = 0; i < result.size(); ++i) {
+		result[i] = std::tolower(static_cast<unsigned char>(result[i]));
+	}
+	return result;
+}
+
 std::string first_token(const std::string& s)
 {
 	std::string::size_type ws = s.find(' ');
@@ -62,23 +70,25 @@ bool process_line(int fd,
 		std::string nick = rest;
 		if (!nick.empty() && nick[0] == ':')
 			nick.erase(0, 1);
-		nick = first_token(nick);
-		if (g_state.nick2fd.find(nick) != g_state.nick2fd.end())
+
+		std::string key = lower_str(nick);
+		if (g_state.nick2fd.find(key) != g_state.nick2fd.end()
+			&& g_state.nick2fd[key] != fd)
 		{
 			send_numeric(clients, fd, 433, cl.nick, nick, "Nickname is already in use");
 			return false;
 		}
 		if (!cl.nick.empty())
 		{
-			std::map<std::string,int>::iterator old = g_state.nick2fd.find(cl.nick);
+			std::map<std::string,int>::iterator old = g_state.nick2fd.find(lower_str(cl.nick));
 			if (old != g_state.nick2fd.end() && old->second == fd)
 				g_state.nick2fd.erase(old);
 		}
 		cl.nick = nick;
-		g_state.nick2fd[nick] = fd;
+		g_state.nick2fd[key] = fd;
 		return false;
 	}
-	if (cmd == "PING") 
+	if (cmd == "PING")
 	{
 		if (!rest.empty() && rest[0] == ':')
 			rest.erase(0, 1);
