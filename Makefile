@@ -4,7 +4,7 @@ NAME     := ft_irc
 
 SRC_DIR  := src
 INC_DIR  := include
-SRC      := $(SRC_DIR)/main.cpp $(SRC_DIR)/utils.cpp $(SRC_DIR)/Cmd_core.cpp $(SRC_DIR)/Proto.cpp $(SRC_DIR)/State.cpp
+SRC      := $(SRC_DIR)/main.cpp $(SRC_DIR)/utils.cpp $(SRC_DIR)/Cmd_core.cpp $(SRC_DIR)/Proto.cpp $(SRC_DIR)/State.cpp $(SRC_DIR)/Net.cpp
 
 OBJ      := $(SRC:.cpp=.o)
 
