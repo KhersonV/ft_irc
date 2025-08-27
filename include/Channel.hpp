@@ -7,6 +7,8 @@
 struct Channel {
 	std::string name;
 	std::set<int> members;
+	std::set<int> ops;
+	std::string topic;
 };
 
 #endif

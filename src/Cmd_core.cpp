@@ -1,10 +1,9 @@
+#include "Channel.hpp"
 #include "Cmd_core.hpp"
 #include "Proto.hpp"
 #include "State.hpp"
 #include "utils.hpp"
-#include "Channel.hpp"
 #include <set>
-
 
 static bool	is_valid_nick(const std::string &nickname)
 {
@@ -78,6 +77,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	size_t	sp1;
 	size_t	pos_trailing;
 	int		rfd;
+	bool	first;
 
 	std::string s = line;
 	if (!s.empty() && s[0] == ':')
@@ -204,6 +204,38 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		finish_register(clients, fd);
 		return (false);
 	}
+	if (cmd == "JOIN")
+	{
+		if (!cl.registered)
+		{
+			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
+				"You have not registered");
+			return (false);
+		}
+		if (rest.empty())
+		{
+			send_numeric(clients, fd, 461, cl.nick, "JOIN",
+				"Not enough parameters");
+			return (false);
+		}
+		std::string chname = first_token(rest);
+		if (chname.empty() || chname[0] != '#')
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		std::string key = ftirc::lower_str(chname);
+		Channel &ch = g_state.channels[key];
+		if (ch.name.empty())
+			ch.name = chname;
+		first = ch.members.empty();
+		ch.members.insert(fd);
+		if (first)
+			ch.ops.insert(fd);
+		std::string joinMsg = ":" + cl.nick + " JOIN " + chname;
+		send_to_channel(clients, ch, joinMsg, -1);
+		return (false);
+	}
 	if (cmd == "PRIVMSG")
 	{
 		if (!cl.registered)
@@ -235,28 +267,28 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 			return (false);
 		}
 		std::string text = rest.substr(pos_trailing + 2);
-
 		if (!target.empty() && target[0] == '#')
 		{
-			std::map<std::string, Channel>::iterator itCh =
-				g_state.channels.find(ftirc::lower_str(target));
+			std::map<std::string,
+				Channel>::iterator itCh = g_state.channels.find(ftirc::lower_str(target));
 			if (itCh == g_state.channels.end())
 			{
-				send_numeric(clients, fd, 403, cl.nick, target, "No such channel");
-				return false;
+				send_numeric(clients, fd, 403, cl.nick, target,
+					"No such channel");
+				return (false);
 			}
 			Channel &ch = itCh->second;
 			if (ch.members.find(fd) == ch.members.end())
 			{
 				send_numeric(clients, fd, 404, cl.nick, target,
 					"Cannot send to channel");
-				return false;
+				return (false);
 			}
-			std::string line = ":" + cl.nick + " PRIVMSG " + target + " :" + text;
+			std::string line = ":" + cl.nick + " PRIVMSG " + target + " :"
+				+ text;
 			send_to_channel(clients, ch, line, fd);
-			return false;
+			return (false);
 		}
-
 		std::map<std::string,
 			int>::iterator itNick = g_state.nick2fd.find(ftirc::lower_str(target));
 		if (itNick == g_state.nick2fd.end())
