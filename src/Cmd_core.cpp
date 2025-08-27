@@ -70,6 +70,36 @@ static void	send_to_channel(std::map<int, Client> &clients, const Channel &ch,
 	}
 }
 
+static void	remove_member_from_channel(Channel &ch, int fd)
+{
+	ch.members.erase(fd);
+	ch.ops.erase(fd);
+}
+
+static void	leave_all_channels(std::map<int, Client> &clients,
+		const std::string &nick, int fd, const std::string &reason)
+{
+	std::vector<std::string> to_erase;
+	for (std::map<std::string,
+		Channel>::iterator it = g_state.channels.begin(); it != g_state.channels.end(); ++it)
+	{
+		Channel &ch = it->second;
+		if (ch.members.find(fd) != ch.members.end())
+		{
+			std::string line = ":" + nick + " QUIT :"
+				+ (reason.empty() ? "Quit" : reason);
+			send_to_channel(clients, ch, line, fd);
+			remove_member_from_channel(ch, fd);
+			if (ch.members.empty())
+				to_erase.push_back(it->first);
+		}
+	}
+	for (size_t i = 0; i < to_erase.size(); ++i)
+	{
+		g_state.channels.erase(to_erase[i]);
+	}
+}
+
 bool	process_line(int fd, const std::string &line, std::map<int,
 		Client> &clients, std::vector<int> &fds)
 {
@@ -78,6 +108,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	size_t	pos_trailing;
 	int		rfd;
 	bool	first;
+	size_t	pos;
 
 	std::string s = line;
 	if (!s.empty() && s[0] == ':')
@@ -313,6 +344,20 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "QUIT")
 	{
+		std::string reason;
+		if (!rest.empty())
+		{
+			if (rest[0] == ':')
+				reason = rest.substr(1);
+			else
+			{
+				pos = rest.find(" :");
+				if (pos != std::string::npos)
+					reason = rest.substr(pos + 2);
+			}
+		}
+		leave_all_channels(clients, cl.nick.empty() ? "*" : cl.nick, fd,
+			reason);
 		ftirc::close_and_remove(fd, fds, clients);
 		return (true);
 	}
