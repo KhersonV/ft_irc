@@ -105,10 +105,10 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 {
 	size_t	sp;
 	size_t	sp1;
-	size_t	pos_trailing;
 	int		rfd;
 	bool	first;
 	size_t	pos;
+	size_t	pos_trailing;
 
 	std::string s = line;
 	if (!s.empty() && s[0] == ':')
@@ -265,6 +265,55 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 			ch.ops.insert(fd);
 		std::string joinMsg = ":" + cl.nick + " JOIN " + chname;
 		send_to_channel(clients, ch, joinMsg, -1);
+		return (false);
+	}
+	if (cmd == "PART")
+	{
+		if (!cl.registered)
+		{
+			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
+				"You have not registered");
+			return (false);
+		}
+		if (rest.empty())
+		{
+			send_numeric(clients, fd, 461, cl.nick, "PART",
+				"Not enough parameters");
+			return (false);
+		}
+		std::string chname = first_token(rest);
+		if (chname.empty() || chname[0] != '#')
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		std::string reason;
+		pos_trailing = rest.find(" :");
+		if (pos_trailing != std::string::npos)
+			reason = rest.substr(pos_trailing + 2);
+		std::string key = ftirc::lower_str(chname);
+		std::map<std::string,
+			Channel>::iterator itCh = g_state.channels.find(key);
+		if (itCh == g_state.channels.end())
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		Channel &ch = itCh->second;
+		if (ch.members.find(fd) == ch.members.end())
+		{
+			send_numeric(clients, fd, 442, cl.nick, chname,
+				"You're not on that channel");
+			return (false);
+		}
+		std::string line = ":" + cl.nick + " PART " + ch.name;
+		if (!reason.empty())
+			line += " :" + reason;
+		enqueue_line(clients, fd, line);
+		send_to_channel(clients, ch, line, fd);
+		remove_member_from_channel(ch, fd);
+		if (ch.members.empty())
+			g_state.channels.erase(key);
 		return (false);
 	}
 	if (cmd == "PRIVMSG")
