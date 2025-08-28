@@ -109,6 +109,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	bool	first;
 	size_t	pos;
 	size_t	pos_trailing;
+	bool	isOp;
 
 	std::string s = line;
 	if (!s.empty() && s[0] == ':')
@@ -314,6 +315,49 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		remove_member_from_channel(ch, fd);
 		if (ch.members.empty())
 			g_state.channels.erase(key);
+		return (false);
+	}
+	if (cmd == "NAMES")
+	{
+		if (!cl.registered)
+		{
+			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
+				"You have not registered");
+			return (false);
+		}
+		if (rest.empty())
+		{
+			send_numeric(clients, fd, 461, cl.nick, "NAMES",
+				"Not enough parameters");
+			return (false);
+		}
+		std::string chname = first_token(rest);
+		if (chname.empty() || chname[0] != '#')
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		std::string key = ftirc::lower_str(chname);
+		std::map<std::string,
+			Channel>::iterator itCh = g_state.channels.find(key);
+		if (itCh == g_state.channels.end())
+		{
+			send_numeric(clients, fd, 353, cl.nick, "= " + chname, "");
+			send_numeric(clients, fd, 366, cl.nick, chname, "End of /NAMES list.");
+			return (false);
+		}
+		Channel &ch = itCh->second;
+		std::string names;
+		for (std::set<int>::iterator it = ch.members.begin(); it != ch.members.end(); ++it)
+		{
+			const Client &m = clients[*it];
+			if (!names.empty())
+				names += " ";
+			isOp = (ch.ops.find(*it) != ch.ops.end());
+			names += (isOp ? "@" : "") + (m.nick.empty() ? "*" : m.nick);
+		}
+		send_numeric(clients, fd, 353, cl.nick, "= " + chname, names);
+		send_numeric(clients, fd, 366, cl.nick, chname, "End of /NAMES list.");
 		return (false);
 	}
 	if (cmd == "PRIVMSG")
