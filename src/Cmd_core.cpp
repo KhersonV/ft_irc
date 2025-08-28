@@ -3,7 +3,9 @@
 #include "Proto.hpp"
 #include "State.hpp"
 #include "utils.hpp"
+
 #include <set>
+#include <sstream>
 
 static bool	is_valid_nick(const std::string &nickname)
 {
@@ -234,6 +236,73 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		cl.user = username;
 		cl.realname = realname;
 		finish_register(clients, fd);
+		return (false);
+	}
+	if (cmd == "TOPIC")
+	{
+		if (!cl.registered)
+		{
+			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
+				"You have not registered");
+			return (false);
+		}
+		if (rest.empty())
+		{
+			send_numeric(clients, fd, 461, cl.nick, "TOPIC",
+				"Not enough parameters");
+			return (false);
+		}
+		std::string chname = first_token(rest);
+		if (chname.empty() || chname[0] != '#')
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		std::string key = ftirc::lower_str(chname);
+		std::map<std::string,
+			Channel>::iterator itCh = g_state.channels.find(key);
+		if (itCh == g_state.channels.end())
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		Channel &ch = itCh->second;
+		if (ch.members.find(fd) == ch.members.end())
+		{
+			send_numeric(clients, fd, 442, cl.nick, chname,
+				"You're not on that channel");
+			return (false);
+		}
+		pos_trailing = rest.find(" :");
+		if (pos_trailing == std::string::npos)
+		{
+			if (ch.topic.empty())
+			{
+				send_numeric(clients, fd, 331, cl.nick, chname,
+					"No topic is set");
+			}
+			else
+			{
+				send_numeric(clients, fd, 332, cl.nick, chname, ch.topic);
+				std::ostringstream p;
+				p << chname << " " << (ch.topic_set_by.empty() ? "*" : ch.topic_set_by) << " " << (ch.topic_set_at ? ch.topic_set_at : 0);
+				send_numeric(clients, fd, 333, cl.nick, p.str(), "");
+			}
+			return (false);
+		}
+		std::string new_topic = rest.substr(pos_trailing + 2);
+		if (ch.topic_restricted && ch.ops.find(fd) == ch.ops.end())
+		{
+			send_numeric(clients, fd, 482, cl.nick, chname,
+				"You're not channel operator");
+			return (false);
+		}
+		ch.topic = new_topic;
+		ch.topic_set_by = cl.nick;
+		ch.topic_set_at = std::time(NULL);
+		std::string line = ":" + cl.nick + " TOPIC " + ch.name + " :"
+			+ new_topic;
+		send_to_channel(clients, ch, line, -1);
 		return (false);
 	}
 	if (cmd == "JOIN")
