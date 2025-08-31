@@ -72,6 +72,20 @@ static void	send_to_channel(std::map<int, Client> &clients, const Channel &ch,
 	}
 }
 
+bool is_member(const Channel& ch, int fd) {
+	return ch.members.find(fd) != ch.members.end();
+}
+bool is_op(const Channel& ch, int fd) {
+	return ch.ops.find(fd) != ch.ops.end();
+}
+
+std::string ltrim(const std::string& s) {
+	std::string::size_type i = 0;
+	while (i < s.size() && (s[i] == ' ' || s[i] == '\t'))
+		++i;
+	return s.substr(i);
+}
+
 static void	remove_member_from_channel(Channel &ch, int fd)
 {
 	ch.members.erase(fd);
