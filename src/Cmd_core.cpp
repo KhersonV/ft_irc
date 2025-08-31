@@ -200,7 +200,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		if (cl.registered)
 		{
 			send_numeric(clients, fd, 451, cl.nick, "",
-				"You may not reregister");
+				"Not registered");
 			return (false);
 		}
 		if (rest.empty())
@@ -226,9 +226,27 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		Channel &ch = it->second;
 
 		std::string modes = "+";
-		std::string params;
+		if (ch.topic_restricted)	modes += 't';
+		if (ch.invite_only)			modes += 'i';
+		if (!ch.key.empty())		modes += 'k';
+		if (ch.user_limit > 0)		modes += 'l';
+		if (modes == "+")			modes = '+';
 
-		send_numeric(clients, fd, 324, cl.nick, ch.name, modes + (params.empty() ? "" : " " + params));
+		std::string modeParams;
+		if (!ch.key.empty()) {
+			modeParams += " *";
+		}
+		if (ch.user_limit > 0) {
+			// ебаный с++98
+			std::ostringstream ss;
+			ss << ch.user_limit;
+			modeParams += " " + ss.str();
+		}
+
+		std::string params = ch.name + " " + modes + modeParams;
+
+		send_numeric(clients, fd, 324, cl.nick, params, "");
+
 		return false;
 	}
 	if (cmd == "USER")
