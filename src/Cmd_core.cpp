@@ -211,7 +211,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "MODE")
 	{
-		if (cl.registered)
+		if (!cl.registered)
 		{
 			send_numeric(clients, fd, 451, cl.nick, "",
 				"Not registered");
@@ -238,6 +238,44 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		}
 
 		Channel &ch = it->second;
+
+		std::string tail = ltrim(rest.substr(chname.size()));
+
+		if (!tail.empty()) {
+
+			if (tail == "+t" || tail == "-t") {
+
+				if (!is_member(ch, fd)) {
+					send_numeric(clients, fd, 442, cl.nick, ch.name, "You're not on that channel");
+					return false;
+				}
+				if (!is_op(ch, fd)) {
+					send_numeric(clients, fd, 482, cl.nick, ch.name, "You're not channel operator");
+					return false;
+				}
+
+				bool new_val = (tail == "+t");
+				if (ch.topic_restricted != new_val) {
+					ch.topic_restricted = new_val;
+
+					std::string line = ":" + cl.nick + " MODE " + ch.name + " " + tail;
+					send_to_channel(clients, ch, line, -1);
+				}
+
+				return false;
+			} else {
+				char bad = 0;
+				for (size_t i = 0; i < tail.size(); ++i) {
+					if (tail[i] != ' ' && tail[i] != '\t' && tail[i] != '+' && tail[i] != '-') {
+						bad = tail[i]; break;
+					}
+				}
+				std::string bad_s(1, bad ? bad : '?');
+				send_numeric(clients, fd, 472, cl.nick, bad_s, "is unknown mode char to me");
+				return false;
+			}
+		}
+
 
 		std::string modes = "+";
 		if (ch.topic_restricted)	modes += 't';
