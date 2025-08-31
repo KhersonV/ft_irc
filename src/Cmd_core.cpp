@@ -224,7 +224,10 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 			return false;
 		}
 
-		std::string chname = first_token(rest);
+		// нужно для того чтобы убрать пробелы
+		// резать пробелы изначально, rest2 - костыль
+		std::string rest2 = ltrim(rest);
+		std::string chname = first_token(rest2);
 		if (chname.empty() || chname[0] != '#')
 		{
 			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
@@ -239,10 +242,11 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 
 		Channel &ch = it->second;
 
-		std::string tail = ltrim(rest.substr(chname.size()));
+		std::string tail = (rest2.size() > chname.size())
+							? ltrim(rest2.substr(chname.size()))
+							: std::string();
 
 		if (!tail.empty()) {
-
 			if (tail == "+t" || tail == "-t") {
 
 				if (!is_member(ch, fd)) {
@@ -263,7 +267,8 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 				}
 
 				return false;
-			} else {
+			} // else if (tail = "+o" || tail == "-o") ветки флагов продолжать здесь
+			else {
 				char bad = 0;
 				for (size_t i = 0; i < tail.size(); ++i) {
 					if (tail[i] != ' ' && tail[i] != '\t' && tail[i] != '+' && tail[i] != '-') {
