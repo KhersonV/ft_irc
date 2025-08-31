@@ -195,6 +195,42 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		finish_register(clients, fd);
 		return (false);
 	}
+	if (cmd == "MODE")
+	{
+		if (cl.registered)
+		{
+			send_numeric(clients, fd, 451, cl.nick, "",
+				"You may not reregister");
+			return (false);
+		}
+		if (rest.empty())
+		{
+			send_numeric(clients, fd, 461, cl.nick, "MODE",
+				"Not enough parameters");
+			return false;
+		}
+
+		std::string chname = first_token(rest);
+		if (chname.empty() || chname[0] != '#')
+		{
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return (false);
+		}
+		std::string key = ftirc::lower_str(chname);
+		std::map<std::string,Channel>::iterator it = g_state.channels.find(key);
+		if (it == g_state.channels.end()) {
+			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+			return false;
+		}
+
+		Channel &ch = it->second;
+
+		std::string modes = "+";
+		std::string params;
+
+		send_numeric(clients, fd, 324, cl.nick, ch.name, modes + (params.empty() ? "" : " " + params));
+		return false;
+	}
 	if (cmd == "USER")
 	{
 		if (cl.registered)
