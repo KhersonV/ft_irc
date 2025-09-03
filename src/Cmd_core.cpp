@@ -116,6 +116,8 @@ static void	leave_all_channels(std::map<int, Client> &clients,
 	}
 }
 
+//todo: extract each command into it's own function
+//todo: add constants for all ints that describe unchangable fd's
 bool	process_line(int fd, const std::string &line, std::map<int,
 		Client> &clients, std::vector<int> &fds)
 {
