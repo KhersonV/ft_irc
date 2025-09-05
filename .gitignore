@@ -1,2 +1,7 @@
 .DS_Store
 .vscode
+*.o
+
+#executable
+a.out
+ft_irc
