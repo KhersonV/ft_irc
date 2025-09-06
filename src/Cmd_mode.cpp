@@ -102,6 +102,6 @@ bool handle_MODE(int fd, Client &cl,
 	}
 
 	std::string params = ch.name + " " + modes + modeParams;
-	send_numeric(clients, fd, 324, cl.nick, params, "");
+	send_numeric(clients, fd, CHANNEL_MODE_IS, cl.nick, params, "");
 	return false;
 }
