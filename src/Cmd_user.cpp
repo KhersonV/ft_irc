@@ -20,30 +20,29 @@ bool parse_user_params(const std::string &rest, std::string &username, std::stri
 {
 	if (rest.empty()) {
 		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "USER",
-					"Not enough parameters");
+					"syntax: USER <username> 0 * :<realname>");
 		return false;
 	}
 
-	// username = first token
 	username = rest;
 	std::string::size_type sp1 = username.find(' ');
 	if (sp1 != std::string::npos)
 		username.erase(sp1);
 
-	// realname = trailing after " :"
+	if (username.empty()) {
+		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "USER",
+					"Need username: USER <username> 0 * :<realname>");
+		return false;
+	}
+
 	std::string::size_type pos_trailing = rest.find(" :");
 	if (pos_trailing == std::string::npos) {
 		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "USER",
-					"Not enough parameters");
+					"Need semicolon before real name: USER <username> 0 * :<realname>");
 		return false;
 	}
 	realname = rest.substr(pos_trailing + 2);
 
-	if (username.empty()) {
-		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "USER",
-					"Not enough parameters");
-		return false;
-	}
 	return true;
 }
 
