@@ -3,35 +3,43 @@
 #include "utils.hpp"
 #include "State.hpp"
 #include "Channel.hpp"
+#include "Irc_codes.hpp"
 #include <sstream>
 
 using namespace ftirc;
+
+using namespace ft_codes;
 
 bool handle_MODE(int fd, Client &cl,
 						std::map<int, Client> &clients,
 						const std::string &rest)
 {
 	if (!cl.registered) {
-		send_numeric(clients, fd, 451, cl.nick, "", "Not registered");
+		send_numeric(clients, fd, NOT_REGISTERED, cl.nick, "", "Not registered");
 		return false;
 	}
 	if (rest.empty()) {
-		send_numeric(clients, fd, 461, cl.nick, "MODE", "Not enough parameters");
+		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "MODE", "Not enough parameters");
 		return false;
 	}
 
 	// trim leading spaces; rest2 is used to avoid modifying `rest`
 	std::string rest2 = ltrim(rest);
 	std::string chname = first_token(rest2);
-	if (chname.empty() || chname[0] != '#') {
-		send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+	if (chname.empty()) {
+		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "MODE", "Not enough parameters");
+		return false;
+	}
+
+	if (chname[0] != '#') {
+		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "MODE", "Channel name must start with '#'");
 		return false;
 	}
 
 	std::string key = ftirc::lower_str(chname);
 	std::map<std::string, Channel>::iterator it = g_state.channels.find(key);
 	if (it == g_state.channels.end()) {
-		send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
+		send_numeric(clients, fd, NO_SUCH_CHANNEL, cl.nick, chname, "No such channel");
 		return false;
 	}
 
@@ -69,8 +77,8 @@ bool handle_MODE(int fd, Client &cl,
 				}
 			}
 			std::string bad_s(1, bad ? bad : '?');
-			send_numeric(clients, fd, 472, cl.nick, bad_s,
-						"is unknown mode char to me");
+			send_numeric(clients, fd, UNKNOWN_MODE, cl.nick, bad_s,
+						"unknown mode char; use [+-]<t,i,k,l,o>");
 			return false;
 		}
 	}
