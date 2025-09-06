@@ -8,40 +8,6 @@
 
 using namespace ftirc;
 
-static bool	is_valid_nick(const std::string &nickname)
-{
-	unsigned char	c;
-
-	if (nickname.empty() || nickname.size() > 30)
-	{
-		return (false);
-	}
-	for (size_t i = 0; i < nickname.size(); ++i)
-	{
-		c = nickname[i];
-		if (std::isalnum(c))
-		{
-			continue ;
-		}
-		switch (c)
-		{
-		case '-':
-		case '_':
-		case '[':
-		case ']':
-		case '\\':
-		case '`':
-		case '^':
-		case '{':
-		case '}':
-			continue ;
-		default:
-			return (false);
-		}
-	}
-	return (true);
-}
-
 void	finish_register(std::map<int, Client> &clients, int fd)
 {
 	Client &c = clients[fd];
@@ -116,40 +82,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "NICK")
 	{
-		if (rest.empty())
-		{
-			send_numeric(clients, fd, 431, cl.nick, "", "No nickname given");
-			return (false);
-		}
-		std::string nick = rest;
-		if (!nick.empty() && nick[0] == ':')
-			nick.erase(0, 1);
-		nick = first_token(nick);
-		if (!is_valid_nick(nick))
-		{
-			send_numeric(clients, fd, 432, cl.nick, nick,
-				"Nick contains invalid characters");
-			return (false);
-		}
-		std::string key = ftirc::lower_str(nick);
-		if (g_state.nick2fd.find(key) != g_state.nick2fd.end()
-			&& g_state.nick2fd[key] != fd)
-		{
-			send_numeric(clients, fd, 433, cl.nick, nick,
-				"Nickname is already in use");
-			return (false);
-		}
-		if (!cl.nick.empty())
-		{
-			std::map<std::string,
-				int>::iterator old = g_state.nick2fd.find(ftirc::lower_str(cl.nick));
-			if (old != g_state.nick2fd.end() && old->second == fd)
-				g_state.nick2fd.erase(old);
-		}
-		cl.nick = nick;
-		g_state.nick2fd[key] = fd;
-		finish_register(clients, fd);
-		return (false);
+		return handle_NICK(fd, cl, clients, rest);
 	}
 	if (cmd == "MODE")
 	{
