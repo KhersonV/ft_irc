@@ -42,44 +42,74 @@ bool	is_valid_nick(const std::string &nickname)
 	}
 	return (true);
 }
-} // namespace
 
-bool handle_NICK(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest)
+bool extract_nick(const std::string &rest, std::string &out_nick, std::map<int, Client> &clients, int fd, const Client &cl)
 {
 	if (rest.empty()) {
 		send_numeric(clients, fd, NO_NICKNAME_GIVEN, cl.nick, "",
 					"No nickname given");
 		return false;
 	}
-
 	std::string nick = rest;
 	if (!nick.empty() && nick[0] == ':') nick.erase(0, 1);
-	nick = first_token(nick);
+	out_nick = first_token(nick);
+	return true;
+}
 
+bool validate_nick(const std::string &nick, std::map<int, Client> &clients, int fd, const Client &cl)
+{
 	if (!is_valid_nick(nick)) {
 		send_numeric(clients, fd, INVALID_NICKNAME, cl.nick, nick,
 					"Nick contains invalid characters");
 		return false;
 	}
+	return true;
+}
 
-	std::string key = lower_str(nick);
-	std::map<std::string,int>::iterator it = g_state.nick2fd.find(key);
+bool is_nick_unique(const std::string &nick_key, int fd, std::map<int, Client> &clients,  int fd_for_msg, const Client &cl_for_msg, const std::string &nick_for_msg)
+{
+	std::map<std::string,int>::iterator it = g_state.nick2fd.find(nick_key);
 	if (it != g_state.nick2fd.end() && it->second != fd) {
-		send_numeric(clients, fd, ft_codes::NICKNAME_IN_USE, cl.nick, nick,
-					"Nickname is already in use");
+		send_numeric(clients, fd_for_msg, NICKNAME_IN_USE, cl_for_msg.nick,
+					nick_for_msg, "Nickname is already in use");
 		return false;
 	}
+	return true;
+}
 
-	// Remove old mapping (if any) for this fd
+void remove_old_nick_mapping(Client &cl, int fd)
+{
 	if (!cl.nick.empty()) {
 		std::string oldkey = lower_str(cl.nick);
 		std::map<std::string,int>::iterator old = g_state.nick2fd.find(oldkey);
 		if (old != g_state.nick2fd.end() && old->second == fd)
 			g_state.nick2fd.erase(old);
 	}
+}
 
+void commit_nick_update(Client &cl, int fd,  const std::string &nick, const std::string &nick_key)
+{
 	cl.nick = nick;
-	g_state.nick2fd[key] = fd;
+	g_state.nick2fd[nick_key] = fd;
+}
+
+} // namespace
+
+bool handle_NICK(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest)
+{
+	std::string nick;
+	if (!extract_nick(rest, nick, clients, fd, cl))
+		return false;
+
+	if (!validate_nick(nick, clients, fd, cl))
+		return false;
+
+	std::string key = lower_str(nick);
+	if (!is_nick_unique(key, fd, clients, fd, cl, nick))
+		return false;
+
+	remove_old_nick_mapping(cl, fd);
+	commit_nick_update(cl, fd, nick, key);
 
 	finish_register(clients, fd);
 	return false;
