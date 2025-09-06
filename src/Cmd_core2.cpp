@@ -564,7 +564,4 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	enqueue_line(clients, fd, "You said: " + line);
 	return (false);
-
-
-
 }
