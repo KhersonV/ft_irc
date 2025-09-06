@@ -53,11 +53,9 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 {
 	size_t	sp;
 	int		rfd;
-	bool	first;
 	size_t	pos;
 	size_t	pos_trailing;
 	bool	isOp;
-	size_t	spk;
 
 	std::string s = line;
 	if (!s.empty() && s[0] == ':')
@@ -97,60 +95,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "JOIN")
 	{
-		if (!cl.registered)
-		{
-			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
-				"You have not registered");
-			return (false);
-		}
-		if (rest.empty())
-		{
-			send_numeric(clients, fd, 461, cl.nick, "JOIN",
-				"Not enough parameters");
-			return (false);
-		}
-		std::string chname = first_token(rest);
-		if (chname.empty() || chname[0] != '#')
-		{
-			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
-			return (false);
-		}
-		std::string key = ftirc::lower_str(chname);
-		Channel &ch = g_state.channels[key];
-		if (ch.name.empty())
-			ch.name = chname;
-		if (ch.invite_only && ch.invited.find(fd) == ch.invited.end())
-		{
-			send_numeric(clients, fd, 473, cl.nick, chname,
-				"Cannot join channel (+i)");
-			return (false);
-		}
-		spk = rest.find(' ');
-		std::string provided_key;
-		if (spk != std::string::npos)
-		{
-			std::string after = ltrim(rest.substr(spk + 1));
-			provided_key = first_token(after);
-		}
-		if (!ch.key.empty() && ch.key != provided_key)
-		{
-			send_numeric(clients, fd, 475, cl.nick, chname,
-				"Cannot join channel (+k)");
-			return (false);
-		}
-		if (ch.user_limit > 0 && ch.members.size() >= (size_t)ch.user_limit)
-		{
-			send_numeric(clients, fd, 471, cl.nick, chname,
-				"Cannot join channel (+l)");
-			return (false);
-		}
-		first = ch.members.empty();
-		ch.members.insert(fd);
-		if (first)
-			ch.ops.insert(fd);
-		std::string joinMsg = ":" + cl.nick + " JOIN " + chname;
-		send_to_channel(clients, ch, joinMsg, -1);
-		return (false);
+		return handle_JOIN(fd, cl, clients, rest);
 	}
 	if (cmd == "INVITE")
 	{
