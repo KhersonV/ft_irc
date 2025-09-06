@@ -56,17 +56,6 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 	send_numeric(clients, fd, 002, c.nick, "", "Your host is ft_irc");
 }
 
-static void	send_to_channel(std::map<int, Client> &clients, const Channel &ch,
-		const std::string &line, int except_fd)
-{
-	for (std::set<int>::iterator it = ch.members.begin(); it != ch.members.end(); ++it)
-	{
-		if (except_fd != -1 && *it == except_fd)
-			continue ;
-		enqueue_line(clients, *it, line);
-	}
-}
-
 static void	leave_all_channels(std::map<int, Client> &clients,
 		const std::string &nick, int fd, const std::string &reason)
 {
