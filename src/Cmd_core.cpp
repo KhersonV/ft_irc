@@ -6,6 +6,8 @@
 #include <set>
 #include <sstream>
 
+using namespace ftirc;
+
 static bool	is_valid_nick(const std::string &nickname)
 {
 	unsigned char	c;
@@ -52,46 +54,6 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 	c.registered = true;
 	send_numeric(clients, fd, 001, c.nick, "", "Welcome to ft_irc " + c.nick);
 	send_numeric(clients, fd, 002, c.nick, "", "Your host is ft_irc");
-}
-
-static std::string first_token(const std::string &s)
-{
-	std::string::size_type ws = s.find(' ');
-	return (ws == std::string::npos) ? s : s.substr(0, ws);
-}
-
-static void	send_to_channel(std::map<int, Client> &clients, const Channel &ch,
-		const std::string &line, int except_fd)
-{
-	for (std::set<int>::iterator it = ch.members.begin(); it != ch.members.end(); ++it)
-	{
-		if (except_fd != -1 && *it == except_fd)
-			continue ;
-		enqueue_line(clients, *it, line);
-	}
-}
-
-bool	is_member(const Channel &ch, int fd)
-{
-	return (ch.members.find(fd) != ch.members.end());
-}
-bool	is_op(const Channel &ch, int fd)
-{
-	return (ch.ops.find(fd) != ch.ops.end());
-}
-
-std::string ltrim(const std::string &s)
-{
-	std::string::size_type i = 0;
-	while (i < s.size() && (s[i] == ' ' || s[i] == '\t'))
-		++i;
-	return (s.substr(i));
-}
-
-static void	remove_member_from_channel(Channel &ch, int fd)
-{
-	ch.members.erase(fd);
-	ch.ops.erase(fd);
 }
 
 static void	leave_all_channels(std::map<int, Client> &clients,

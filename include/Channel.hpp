@@ -26,4 +26,19 @@ struct	Channel
 	{}
 };
 
+inline bool is_member(const Channel &ch, int fd)
+{
+	return (ch.members.find(fd) != ch.members.end());
+}
+inline bool is_op(const Channel &ch, int fd)
+{
+	return (ch.ops.find(fd) != ch.ops.end());
+}
+
+inline void	remove_member_from_channel(Channel &ch, int fd)
+{
+	ch.members.erase(fd);
+	ch.ops.erase(fd);
+}
+
 #endif

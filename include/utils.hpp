@@ -23,7 +23,8 @@ void close_and_remove(int fd,
 
 std::string to_upper(std::string s);
 std::string lower_str(const std::string& nickname);
-
+std::string ltrim(const std::string &s);
+std::string first_token(const std::string &s);
 
 }
 

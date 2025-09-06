@@ -116,11 +116,24 @@ void close_and_remove(int fd,
 	std::cout << "Close fd=" << fd << "\n";
 }
 
-
  std::string to_upper(std::string s) {
 	for (size_t i = 0; i < s.size(); ++i)
 		s[i] = std::toupper(static_cast<unsigned char>(s[i]));
 	return s;
+}
+
+std::string ltrim(const std::string &s)
+{
+	std::string::size_type i = 0;
+	while (i < s.size() && (s[i] == ' ' || s[i] == '\t'))
+		++i;
+	return (s.substr(i));
+}
+
+std::string first_token(const std::string &s)
+{
+	std::string::size_type ws = s.find(' ');
+	return (ws == std::string::npos) ? s : s.substr(0, ws);
 }
 
 }

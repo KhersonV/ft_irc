@@ -23,3 +23,13 @@ void send_numeric(std::map<int,Client>& clients, int fd, int code,
 	enqueue_line(clients, fd, oss.str());
 }
 
+void	send_to_channel(std::map<int, Client> &clients, const Channel &ch,
+		const std::string &line, int except_fd)
+{
+	for (std::set<int>::iterator it = ch.members.begin(); it != ch.members.end(); ++it)
+	{
+		if (except_fd != -1 && *it == except_fd)
+			continue ;
+		enqueue_line(clients, *it, line);
+	}
+}
