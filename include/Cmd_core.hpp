@@ -14,6 +14,7 @@ bool handle_MODE(int fd, Client &cl, std::map<int, Client> &clients, const std::
 bool handle_NICK(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 bool handle_USER(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 bool handle_TOPIC(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
+bool handle_JOIN(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 
 void finish_register(std::map<int, Client> &clients, int fd);
 
