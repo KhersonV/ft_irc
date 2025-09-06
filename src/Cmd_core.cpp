@@ -52,7 +52,6 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		Client> &clients, std::vector<int> &fds)
 {
 	size_t	sp;
-	size_t	sp1;
 	int		rfd;
 	bool	first;
 	size_t	pos;
@@ -90,46 +89,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "USER")
 	{
-		if (cl.registered)
-		{
-			send_numeric(clients, fd, 462, cl.nick, "",
-				"You may not reregister");
-			return (false);
-		}
-		if (rest.empty())
-		{
-			send_numeric(clients, fd, 461, cl.nick, "USER",
-				"Not enough parameters");
-			return (false);
-		}
-		std::string username = rest;
-		sp1 = username.find(' ');
-		if (sp1 != std::string::npos)
-		{
-			username.erase(sp1);
-		}
-		std::string realname;
-		pos_trailing = rest.find(" :");
-		if (pos_trailing != std::string::npos)
-		{
-			realname = rest.substr(pos_trailing + 2);
-		}
-		else
-		{
-			send_numeric(clients, fd, 461, cl.nick, "USER",
-				"Not enough parameters");
-			return (false);
-		}
-		if (username.empty())
-		{
-			send_numeric(clients, fd, 461, cl.nick, "USER",
-				"Not enough parameters");
-			return (false);
-		}
-		cl.user = username;
-		cl.realname = realname;
-		finish_register(clients, fd);
-		return (false);
+		return handle_USER(fd, cl, clients, rest);
 	}
 	if (cmd == "TOPIC")
 	{
