@@ -47,7 +47,7 @@ bool lookup_target_fd(const std::string &target, int &out_fd, const Client &cl, 
 	return true;
 }
 
-bool lookup_channel_existing(const std::string &chname, Channel *&out_ch, const Client &cl, int fd, std::map<int, Client> &clients)
+bool find_channel(const std::string &chname, Channel *&out_ch, const Client &cl, int fd, std::map<int, Client> &clients)
 {
 	std::map<std::string,Channel>::iterator it =
 		g_state.channels.find(lower_str(chname));
@@ -59,7 +59,7 @@ bool lookup_channel_existing(const std::string &chname, Channel *&out_ch, const 
 	return true;
 }
 
-bool ensure_inviter_membership(Channel &ch, const std::string &chname, const Client &cl, int fd, std::map<int, Client> &clients)
+bool is_member_of_channel(const Channel &ch, const std::string &chname, const Client &cl, int fd, std::map<int, Client> &clients)
 {
 	if (!is_member(ch, fd)) {
 		send_numeric(clients, fd, NOT_ON_CHANNEL, cl.nick, chname,
@@ -110,10 +110,10 @@ bool handle_INVITE(int fd, Client &cl, std::map<int, Client> &clients, const std
 		return false;
 
 	Channel *ch = 0;
-	if (!lookup_channel_existing(chname, ch, cl, fd, clients))
+	if (!find_channel(chname, ch, cl, fd, clients))
 		return false;
 
-	if (!ensure_inviter_membership(*ch, chname, cl, fd, clients))
+	if (!is_member_of_channel(*ch, chname, cl, fd, clients))
 		return false;
 
 	if (!ensure_invite_privs(*ch, chname, cl, fd, clients))
