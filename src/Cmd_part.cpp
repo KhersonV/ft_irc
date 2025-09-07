@@ -81,7 +81,6 @@ inline void remove_and_maybe_delete(const std::string &chname, Channel &ch, int 
 
 } // anonymous namespace
 
-// --- handler ---
 bool handle_PART(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest)
 {
 	if (!is_registered(cl, fd, clients))
