@@ -5,6 +5,11 @@
 # include <map>
 # include <string>
 # include <vector>
+# include "Channel.hpp"
+# include "State.hpp"
+# include "utils.hpp"
+# include "Irc_codes.hpp"
+# include "Proto.hpp"
 
 bool	process_line(int fd, const std::string &line, std::map<int,
 			Client> &clients, std::vector<int> &fds);
