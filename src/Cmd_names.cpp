@@ -31,7 +31,7 @@ bool parse_names_args(const std::string &rest, std::string &chname, const Client
 	return true;
 }
 
-bool find_channel_silent(const std::string &chname, Channel *&out_ch, const Client &cl, int fd, std::map<int, Client> &clients)
+bool find_channel_silent(const std::string &chname, Channel *&out_ch)
 {
 	std::map<std::string,Channel>::iterator it =
 		g_state.channels.find(lower_str(chname));
@@ -76,7 +76,7 @@ bool handle_NAMES(int fd, Client &cl, std::map<int, Client> &clients, const std:
 		return false;
 
 	Channel *ch = 0;
-	if (!find_channel_silent(chname, ch, cl, fd, clients)) { // find channel, but don't complain if missing
+	if (!find_channel_silent(chname, ch)) { // find channel, but don't complain if missing
 		send_names_reply(clients, fd, cl, chname, "");
 		return false;
 	}
