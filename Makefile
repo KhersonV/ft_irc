@@ -4,7 +4,7 @@ NAME     := ft_irc
 
 SRC_DIR  := src
 INC_DIR  := include
-SRC      := $(addprefix $(SRC_DIR)/, main.cpp utils.cpp Cmd_core2.cpp Proto.cpp State.cpp Net.cpp Cmd_pass.cpp Cmd_mode.cpp Cmd_nick.cpp Cmd_user.cpp Cmd_topic.cpp Cmd_join.cpp Cmd_invite.cpp Cmd_quit.cpp Cmd_ping.cpp)
+SRC      := $(addprefix $(SRC_DIR)/, main.cpp utils.cpp Cmd_core2.cpp Proto.cpp State.cpp Net.cpp Cmd_pass.cpp Cmd_mode.cpp Cmd_nick.cpp Cmd_user.cpp Cmd_topic.cpp Cmd_join.cpp Cmd_invite.cpp Cmd_quit.cpp Cmd_ping.cpp Cmd_part.cpp Cmd_privmsg.cpp Cmd_names.cpp)
 
 OBJ      := $(SRC:.cpp=.o)
 

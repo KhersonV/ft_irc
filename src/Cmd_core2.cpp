@@ -28,9 +28,6 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		Client> &clients, std::vector<int> &fds)
 {
 	size_t	sp;
-	int		rfd;
-	size_t	pos_trailing;
-	bool	isOp;
 
 	std::string s = line;
 	if (!s.empty() && s[0] == ':')
@@ -74,215 +71,19 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "INVITE")
 	{
-		if (!cl.registered)
-		{
-			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
-				"You have not registered");
-			return (false);
-		}
-		// INVITE <nick> <#chan>
-		std::string target = first_token(rest);
-		std::string after = ltrim(rest.substr(target.size()));
-		std::string chname = first_token(after);
-		if (target.empty() || chname.empty())
-		{
-			send_numeric(clients, fd, 461, cl.nick, "INVITE",
-				"Not enough parameters");
-			return (false);
-		}
-		std::map<std::string,
-			int>::iterator itNick = g_state.nick2fd.find(ftirc::lower_str(target));
-		if (itNick == g_state.nick2fd.end())
-		{
-			send_numeric(clients, fd, 401, cl.nick, target, "No such nick");
-			return (false);
-		}
-		std::map<std::string,
-			Channel>::iterator itCh = g_state.channels.find(ftirc::lower_str(chname));
-		if (itCh == g_state.channels.end())
-		{
-			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
-			return (false);
-		}
-		Channel &ch = itCh->second;
-		if (!is_member(ch, fd))
-		{
-			send_numeric(clients, fd, 442, cl.nick, chname,
-				"You're not on that channel");
-			return (false);
-		}
-		if (ch.invite_only && !is_op(ch, fd))
-		{
-			send_numeric(clients, fd, 482, cl.nick, chname,
-				"You're not channel operator");
-			return (false);
-		}
-		rfd = itNick->second;
-		ch.invited.insert(rfd);
-		// 341 RPL_INVITING
-		send_numeric(clients, fd, 341, cl.nick, target + " " + chname, "");
-		// уведомим приглашённого
-		enqueue_line(clients, rfd, ":" + cl.nick + " INVITE " + target + " :"
-			+ chname);
-		return (false);
+		return handle_INVITE(fd, cl, clients, rest);
 	}
 	if (cmd == "PART")
 	{
-		if (!cl.registered)
-		{
-			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
-				"You have not registered");
-			return (false);
-		}
-		if (rest.empty())
-		{
-			send_numeric(clients, fd, 461, cl.nick, "PART",
-				"Not enough parameters");
-			return (false);
-		}
-		std::string chname = first_token(rest);
-		if (chname.empty() || chname[0] != '#')
-		{
-			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
-			return (false);
-		}
-		std::string reason;
-		pos_trailing = rest.find(" :");
-		if (pos_trailing != std::string::npos)
-			reason = rest.substr(pos_trailing + 2);
-		std::string key = ftirc::lower_str(chname);
-		std::map<std::string,
-			Channel>::iterator itCh = g_state.channels.find(key);
-		if (itCh == g_state.channels.end())
-		{
-			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
-			return (false);
-		}
-		Channel &ch = itCh->second;
-		if (ch.members.find(fd) == ch.members.end())
-		{
-			send_numeric(clients, fd, 442, cl.nick, chname,
-				"You're not on that channel");
-			return (false);
-		}
-		std::string line = ":" + cl.nick + " PART " + ch.name;
-		if (!reason.empty())
-			line += " :" + reason;
-		enqueue_line(clients, fd, line);
-		send_to_channel(clients, ch, line, fd);
-		remove_member_from_channel(ch, fd);
-		if (ch.members.empty())
-			g_state.channels.erase(key);
-		return (false);
+		return handle_PART(fd, cl, clients, rest);
 	}
 	if (cmd == "NAMES")
 	{
-		if (!cl.registered)
-		{
-			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
-				"You have not registered");
-			return (false);
-		}
-		if (rest.empty())
-		{
-			send_numeric(clients, fd, 461, cl.nick, "NAMES",
-				"Not enough parameters");
-			return (false);
-		}
-		std::string chname = first_token(rest);
-		if (chname.empty() || chname[0] != '#')
-		{
-			send_numeric(clients, fd, 403, cl.nick, chname, "No such channel");
-			return (false);
-		}
-		std::string key = ftirc::lower_str(chname);
-		std::map<std::string,
-			Channel>::iterator itCh = g_state.channels.find(key);
-		if (itCh == g_state.channels.end())
-		{
-			send_numeric(clients, fd, 353, cl.nick, "= " + chname, "");
-			send_numeric(clients, fd, 366, cl.nick, chname, "End of /NAMES list.");
-			return (false);
-		}
-		Channel &ch = itCh->second;
-		std::string names;
-		for (std::set<int>::iterator it = ch.members.begin(); it != ch.members.end(); ++it)
-		{
-			const Client &m = clients[*it];
-			if (!names.empty())
-				names += " ";
-			isOp = (ch.ops.find(*it) != ch.ops.end());
-			names += (isOp ? "@" : "") + (m.nick.empty() ? "*" : m.nick);
-		}
-		send_numeric(clients, fd, 353, cl.nick, "= " + chname, names);
-		send_numeric(clients, fd, 366, cl.nick, chname, "End of /NAMES list.");
-		return (false);
+		return handle_NAMES(fd, cl, clients, rest);
 	}
 	if (cmd == "PRIVMSG")
 	{
-		if (!cl.registered)
-		{
-			send_numeric(clients, fd, 451, cl.nick.empty() ? "*" : cl.nick, "",
-				"You have not registered");
-			return (false);
-		}
-		if (rest.empty())
-		{
-			send_numeric(clients, fd, 411, cl.nick, "PRIVMSG",
-				"No recipient given (PRIVMSG)");
-			return (false);
-		}
-		std::string target = rest;
-		sp = target.find(' ');
-		if (sp != std::string::npos)
-			target.erase(sp);
-		if (target.empty())
-		{
-			send_numeric(clients, fd, 411, cl.nick, "PRIVMSG",
-				"No recipient given (PRIVMSG)");
-			return (false);
-		}
-		pos_trailing = rest.find(" :");
-		if (pos_trailing == std::string::npos)
-		{
-			send_numeric(clients, fd, 412, cl.nick, "", "No text to send");
-			return (false);
-		}
-		std::string text = rest.substr(pos_trailing + 2);
-		if (!target.empty() && target[0] == '#')
-		{
-			std::map<std::string,
-				Channel>::iterator itCh = g_state.channels.find(ftirc::lower_str(target));
-			if (itCh == g_state.channels.end())
-			{
-				send_numeric(clients, fd, 403, cl.nick, target,
-					"No such channel");
-				return (false);
-			}
-			Channel &ch = itCh->second;
-			if (ch.members.find(fd) == ch.members.end())
-			{
-				send_numeric(clients, fd, 404, cl.nick, target,
-					"Cannot send to channel");
-				return (false);
-			}
-			std::string line = ":" + cl.nick + " PRIVMSG " + target + " :"
-				+ text;
-			send_to_channel(clients, ch, line, fd);
-			return (false);
-		}
-		std::map<std::string,
-			int>::iterator itNick = g_state.nick2fd.find(ftirc::lower_str(target));
-		if (itNick == g_state.nick2fd.end())
-		{
-			send_numeric(clients, fd, 401, cl.nick, target, "No such nick");
-			return (false);
-		}
-		rfd = itNick->second;
-		std::string line = ":" + (cl.nick.empty() ? "*" : cl.nick) + " PRIVMSG "
-			+ target + " :" + text;
-		enqueue_line(clients, rfd, line);
-		return (false);
+		return handle_PRIVMSG(fd, cl, clients, rest);
 	}
 	if (cmd == "PING")
 	{
