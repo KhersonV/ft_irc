@@ -8,6 +8,31 @@
 
 using namespace ftirc;
 
+namespace
+{
+bool parse_input(const std::string &line, std::string &out_cmd, std::string &out_rest)
+{
+	std::string s(line);
+
+	if (!s.empty() && s[0] == ':') {
+		std::string::size_type sp = s.find(' ');
+		if (sp != std::string::npos) s.erase(0, sp + 1);
+		else return false;
+	}
+
+	std::string::size_type sp = s.find(' ');
+	if (sp == std::string::npos) {
+		out_cmd  = to_upper(s);
+		out_rest.clear();
+	} else {
+		out_cmd  = to_upper(s.substr(0, sp));
+		out_rest = s.substr(sp + 1);
+	}
+	return !out_cmd.empty();
+}
+
+}
+
 void	finish_register(std::map<int, Client> &clients, int fd)
 {
 	Client &c = clients[fd];
@@ -25,23 +50,10 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 bool	process_line(int fd, const std::string &line, std::map<int,
 		Client> &clients, std::vector<int> &fds)
 {
-	size_t	sp;
-
-	std::string s = line;
-	if (!s.empty() && s[0] == ':')
-	{
-		sp = s.find(' ');
-		if (sp != std::string::npos)
-			s.erase(0, sp + 1);
-		else
-			s.clear();
-	}
-	sp = s.find(' ');
-	std::string cmd = (sp == std::string::npos) ? s : s.substr(0, sp);
-	std::string rest = (sp == std::string::npos) ? "" : s.substr(sp + 1);
-	cmd = ftirc::to_upper(cmd);
-	if (cmd.empty())
+	std::string cmd, rest;
+	if (!parse_input(line, cmd, rest))
 		return (false);
+
 	Client &cl = clients[fd];
 	if (cmd == "PASS")
 	{
