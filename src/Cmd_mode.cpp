@@ -69,6 +69,45 @@ bool	handle_mode_invite(Channel &ch, int fd, Client &cl, std::map<int,
 	return (false);
 }
 
+bool	handle_mode_key(Channel &ch, int fd, Client &cl, std::map<int,
+		Client> &clients, const std::string &tok, const std::string &args)
+{
+	if (!must_be_member(ch, fd, clients, cl) || !must_be_op(ch, fd, clients,
+			cl))
+		return (false);
+	if (tok == "+k")
+	{
+		std::string keyParam = first_token(args);
+		if (keyParam.empty())
+		{
+			send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "MODE",
+				"Not enough parameters");
+			return (false);
+		}
+		if (!ch.key.empty())
+		{
+			send_numeric(clients, fd, KEY_ALREADY_SET, cl.nick, ch.name,
+				"Channel key already set");
+			return (false);
+		}
+		ch.key = keyParam;
+		// В сообщении о смене режима ключ не раскрываем — шлём '*'
+		send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name 
+			+ " +k *", -1);
+		return (false);
+	}
+	else
+	{ // "-k"
+		if (!ch.key.empty())
+		{
+			ch.key.clear();
+			send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name
+				+ " -k", -1);
+		}
+		return (false);
+	}
+}
+
 bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 		const std::string &rest)
 {
@@ -102,16 +141,19 @@ bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 	}
 	Channel &ch = it->second;
 	std::string tail = (rest2.size() > chname.size()) ? ltrim(rest2.substr(chname.size())) : std::string();
+	std::string tok = first_token(tail);
+	std::string args = ltrim(tail.substr(tok.size()));
 	if (!tail.empty())
 	{
-		std::string tok = first_token(tail);
 		if (tok == "+t" || tok == "-t")
 			return (handle_mode_topic(ch, fd, cl, clients, tok));
 		if (tok == "+i" || tok == "-i")
 			return (handle_mode_invite(ch, fd, cl, clients, tok));
+		if (tok == "+k" || tok == "-k")
+			return (handle_mode_key(ch, fd, cl, clients, tok, args));
 		// если не распознали
 		send_numeric(clients, fd, UNKNOWN_MODE, cl.nick, tok,
-			"unknown mode char; use [+-]<t,i>");
+			"unknown mode char; use [+-]<t,i,k>");
 		return (false);
 	}
 	// показать текущие режимы
@@ -120,7 +162,15 @@ bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 		modes += 't';
 	if (ch.invite_only)
 		modes += 'i';
-	send_numeric(clients, fd, CHANNEL_MODE_IS, cl.nick, ch.name + " " + modes,
+	if (!ch.key.empty())
+		modes += 'k';
+
+	std::string modeParams;
+	if (!ch.key.empty())
+		modeParams += " *";
+
+
+	send_numeric(clients, fd, CHANNEL_MODE_IS, cl.nick, ch.name + " " + modes + modeParams,
 		"");
 	return (false);
 }
