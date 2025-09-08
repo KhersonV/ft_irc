@@ -22,8 +22,6 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 	send_numeric(clients, fd, 002, c.nick, "", "Your host is ft_irc");
 }
 
-// todo: extract each command into it's own function
-// todo: add constants for all ints that describe unchangable fd's
 bool	process_line(int fd, const std::string &line, std::map<int,
 		Client> &clients, std::vector<int> &fds)
 {
