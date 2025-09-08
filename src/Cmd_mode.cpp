@@ -91,9 +91,7 @@ bool	handle_mode_key(Channel &ch, int fd, Client &cl, std::map<int,
 			return (false);
 		}
 		ch.key = keyParam;
-		// В сообщении о смене режима ключ не раскрываем — шлём '*'
-		send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name 
-			+ " +k *", -1);
+		send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name + " +k *", -1);
 		return (false);
 	}
 	else
@@ -101,8 +99,51 @@ bool	handle_mode_key(Channel &ch, int fd, Client &cl, std::map<int,
 		if (!ch.key.empty())
 		{
 			ch.key.clear();
-			send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name
-				+ " -k", -1);
+			send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name + " -k", -1);
+		}
+		return (false);
+	}
+}
+
+bool	handle_mode_limit(Channel &ch, int fd, Client &cl, std::map<int,
+		Client> &clients, const std::string &tok, const std::string &args)
+{
+	int	n;
+
+	if (!must_be_member(ch, fd, clients, cl) || !must_be_op(ch, fd, clients,
+			cl))
+		return (false);
+	if (tok == "+l")
+	{
+		std::string nParam = first_token(args);
+		if (nParam.empty())
+		{
+			send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "MODE",
+				"Not enough parameters");
+			return (false);
+		}
+		std::istringstream iss(nParam);
+		n = 0;
+		iss >> n;
+		if (!iss || n <= 0)
+		{
+			send_numeric(clients, fd, UNKNOWN_MODE, cl.nick, "l",
+				"Invalid limit");
+			return (false);
+		}
+		ch.user_limit = n;
+		std::ostringstream ss;
+		ss << n;
+		send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name + " +l "
+			+ ss.str(), -1);
+		return (false);
+	}
+	else // "-l"
+	{
+		if (ch.user_limit != 0)
+		{
+			ch.user_limit = 0;
+			send_to_channel(clients, ch, ":" + cl.nick + " MODE " + ch.name + " -l", -1);
 		}
 		return (false);
 	}
@@ -151,9 +192,11 @@ bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 			return (handle_mode_invite(ch, fd, cl, clients, tok));
 		if (tok == "+k" || tok == "-k")
 			return (handle_mode_key(ch, fd, cl, clients, tok, args));
+		if (tok == "+l" || tok == "-l")
+			return handle_mode_limit(ch, fd, cl, clients, tok, args);
 		// если не распознали
 		send_numeric(clients, fd, UNKNOWN_MODE, cl.nick, tok,
-			"unknown mode char; use [+-]<t,i,k>");
+			"unknown mode char; use [+-]<t,i,k,l>");
 		return (false);
 	}
 	// показать текущие режимы
@@ -164,13 +207,17 @@ bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 		modes += 'i';
 	if (!ch.key.empty())
 		modes += 'k';
-
+	if (ch.user_limit > 0)
+		modes += 'l';
 	std::string modeParams;
 	if (!ch.key.empty())
 		modeParams += " *";
-
-
-	send_numeric(clients, fd, CHANNEL_MODE_IS, cl.nick, ch.name + " " + modes + modeParams,
-		"");
+	if (ch.user_limit > 0)
+	{
+		std::ostringstream ss; ss << ch.user_limit;
+		modeParams += " " + ss.str();
+	}
+	send_numeric(clients, fd, CHANNEL_MODE_IS, cl.nick, ch.name + " " + modes
+		+ modeParams, "");
 	return (false);
 }
