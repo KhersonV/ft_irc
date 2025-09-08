@@ -22,30 +22,6 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 	send_numeric(clients, fd, 002, c.nick, "", "Your host is ft_irc");
 }
 
-static void	leave_all_channels(std::map<int, Client> &clients,
-		const std::string &nick, int fd, const std::string &reason)
-{
-	std::vector<std::string> to_erase;
-	for (std::map<std::string,
-		Channel>::iterator it = g_state.channels.begin(); it != g_state.channels.end(); ++it)
-	{
-		Channel &ch = it->second;
-		if (ch.members.find(fd) != ch.members.end())
-		{
-			std::string line = ":" + nick + " QUIT :"
-				+ (reason.empty() ? "Quit" : reason);
-			send_to_channel(clients, ch, line, fd);
-			remove_member_from_channel(ch, fd);
-			if (ch.members.empty())
-				to_erase.push_back(it->first);
-		}
-	}
-	for (size_t i = 0; i < to_erase.size(); ++i)
-	{
-		g_state.channels.erase(to_erase[i]);
-	}
-}
-
 // todo: extract each command into it's own function
 // todo: add constants for all ints that describe unchangable fd's
 bool	process_line(int fd, const std::string &line, std::map<int,
@@ -53,7 +29,6 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 {
 	size_t	sp;
 	int		rfd;
-	size_t	pos;
 	size_t	pos_trailing;
 	bool	isOp;
 
@@ -320,22 +295,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "QUIT")
 	{
-		std::string reason;
-		if (!rest.empty())
-		{
-			if (rest[0] == ':')
-				reason = rest.substr(1);
-			else
-			{
-				pos = rest.find(" :");
-				if (pos != std::string::npos)
-					reason = rest.substr(pos + 2);
-			}
-		}
-		leave_all_channels(clients, cl.nick.empty() ? "*" : cl.nick, fd,
-			reason);
-		ftirc::close_and_remove(fd, fds, clients);
-		return (true);
+		return handle_QUIT(fd, cl, clients, fds, rest);
 	}
 	enqueue_line(clients, fd, "You said: " + line);
 	return (false);
