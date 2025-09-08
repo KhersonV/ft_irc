@@ -286,12 +286,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	}
 	if (cmd == "PING")
 	{
-		if (!rest.empty() && rest[0] == ':')
-			rest.erase(0, 1);
-		if (rest.empty())
-			rest = "ft_irc";
-		enqueue_line(clients, fd, "PONG :" + rest);
-		return (false);
+		return handle_PING(fd, clients, rest);
 	}
 	if (cmd == "QUIT")
 	{
