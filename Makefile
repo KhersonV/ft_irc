@@ -1,6 +1,6 @@
 CXX      := c++
 CXXFLAGS := -std=c++98 -Wall -Wextra -Werror
-NAME     := ft_irc
+NAME     := ircserv
 
 SRC_DIR  := src
 INC_DIR  := include
