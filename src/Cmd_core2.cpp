@@ -58,6 +58,8 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	if (cmd == "PASS")
 	{
 		return handle_PASS(fd, cl, clients, rest);
+	} else if (!validate_PASS_OK(fd, cl, clients)) {
+		return (false);
 	}
 	if (cmd == "NICK")
 	{

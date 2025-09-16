@@ -5,6 +5,15 @@
 
 using namespace ft_codes;
 
+bool validate_PASS_OK(int fd, Client &cl, std::map<int, Client> &clients)
+{
+	if (!cl.pass_ok && !g_state.server_password.empty()) {
+		send_numeric(clients, fd, PASSWORD_MISMATCH, cl.nick, "", "Give Password with PASS <password>");
+		return false;
+	}
+	return true;
+}
+
 bool handle_PASS(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest)
 {
 	if (cl.registered) {
