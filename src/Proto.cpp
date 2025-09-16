@@ -1,5 +1,6 @@
 #include "Proto.hpp"
 #include <sstream>
+#include <iomanip>
 
 void enqueue_line(std::map<int, Client>& clients, int fd, const std::string& s)
 {
@@ -17,7 +18,9 @@ void send_numeric(std::map<int,Client>& clients, int fd, int code,
 				  const std::string& text)
 {
 	std::ostringstream oss;
-	oss << ":ft_irc " << code << " " << (nick.empty() ? "*" : nick);
+	oss << ":ft_irc " 
+		<< std::setw(3) << std::setfill('0') << code
+		<< " " << (nick.empty() ? "*" : nick);
 	if (!params.empty()) oss << " " << params;
 	if (!text.empty())   oss << " :" << text;
 	enqueue_line(clients, fd, oss.str());
