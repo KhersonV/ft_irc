@@ -7,6 +7,7 @@
 #include <sstream>
 
 using namespace ftirc;
+using namespace ft_codes;
 
 namespace
 {
@@ -43,8 +44,8 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 	if (c.nick.empty() || c.user.empty())
 		return ;
 	c.registered = true;
-	send_numeric(clients, fd, 001, c.nick, "", "Welcome to ft_irc " + c.nick);
-	send_numeric(clients, fd, 002, c.nick, "", "Your host is ft_irc");
+	send_numeric(clients, fd, WELCOME, c.nick, "", "Welcome to ft_irc " + c.nick);
+	send_numeric(clients, fd, YOUR_HOST, c.nick, "", "Your host is ft_irc");
 }
 
 bool	process_line(int fd, const std::string &line, std::map<int,
