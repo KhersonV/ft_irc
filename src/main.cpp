@@ -28,7 +28,6 @@ int parse_args(int argc, char** argv) {
 	int port = 6667;
 	if (argc >= 2) port = std::atoi(argv[1]);
 	if (argc >= 3) g_state.server_password = argv[2];
-	else           g_state.server_password = "secret";
 	return port;
 }
 
@@ -105,7 +104,7 @@ void handle_events(const std::vector<pollfd>& pfds, std::vector<int>& fds, std::
 
 int main(int argc, char** argv)
 {
-	if (argc != 3)
+	if (argc != 3) // DO NOT REMOVE CONDITION. WE DO NOT SUPPLY DEFAULT PASSWORD ANYMORE
 	{
 		std::cerr << "Usage: " << argv[0] << " <port> <password>\n";
 		return 1;
