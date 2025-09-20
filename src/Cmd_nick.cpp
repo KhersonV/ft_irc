@@ -93,6 +93,17 @@ void commit_nick_update(Client &cl, int fd,  const std::string &nick, const std:
 	g_state.nick2fd[nick_key] = fd;
 }
 
+void broadcast_nick_change(std::map<int, Client> &clients, const Client &cl, const std::string &new_nick, const std::string &old_nick)
+{
+	std::string msg = ":" + (old_nick.empty() ? "*" : old_nick) + " NICK :" + new_nick;
+
+	for (std::list<Channel*>::const_iterator it = cl.channels.begin(); it != cl.channels.end(); ++it)
+	{
+		send_to_channel(clients, **it, msg, cl.fd);
+	}
+
+	enqueue_line(clients, cl.fd, msg);
+}
 } // namespace
 
 bool handle_NICK(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest)
@@ -108,8 +119,10 @@ bool handle_NICK(int fd, Client &cl, std::map<int, Client> &clients, const std::
 	if (!is_nick_unique(key, fd, clients, fd, cl, nick))
 		return false;
 
+	std::string old_nick = cl.nick;
 	remove_old_nick_mapping(cl, fd);
 	commit_nick_update(cl, fd, nick, key);
+	broadcast_nick_change(clients, cl, nick, old_nick);
 
 	finish_register(clients, fd);
 	return false;
