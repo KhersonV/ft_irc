@@ -23,12 +23,17 @@
 
 namespace {
 
+// we already make sure that argc = 3, but we can keep the check for safety
 int parse_args(int argc, char** argv) {
 	int port = 6667;
 	if (argc >= 2) port = std::atoi(argv[1]);
 	if (argc >= 3) g_state.server_password = argv[2];
 	else           g_state.server_password = "secret";
 	return port;
+}
+
+bool portValid(int port) {
+	return port >= 1024 && port <= 49151;
 }
 
 
@@ -100,6 +105,12 @@ void handle_events(const std::vector<pollfd>& pfds, std::vector<int>& fds, std::
 
 int main(int argc, char** argv)
 {
+	if (argc != 3)
+	{
+		std::cerr << "Usage: " << argv[0] << " <port> <password>\n";
+		return 1;
+	}
+
 	signal(SIGPIPE, SIG_IGN);
 
 	std::vector<pollfd> pfds;
@@ -107,6 +118,10 @@ int main(int argc, char** argv)
 	std::map<int, Client> clients;
 
 	int port = parse_args(argc, argv);
+	if (!(portValid(port))) { // technically we can have ports 0-65535, but 0-1023 are reserved and 49152-65535 are dynamic/private
+		std::cerr << "Choose Port between 1024 and 49151: " << argv[1] << "\n";
+		return 1;
+	}
 
 	int server_fd = ftirc::create_listen_socket(port);
 	if (server_fd < 0) {
