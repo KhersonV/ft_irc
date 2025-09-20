@@ -3,6 +3,7 @@
 
 #include <string>
 #include <ctime>
+#include <list>
 
 struct Client {
 	int		fd;
@@ -11,6 +12,7 @@ struct Client {
 	std::string	nick;
 	std::string user;
 	std::string	realname;
+	std::list<Channel*> channels;
 	bool		pass_ok;
 	bool		registered;
 	Client():	fd(-1), pass_ok(false), registered(false) {}

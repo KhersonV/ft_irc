@@ -71,6 +71,11 @@ inline void broadcast_part(std::map<int, Client> &clients, Channel &ch, const Cl
 	send_to_channel(clients, ch, line, fd);
 }
 
+inline void remove_channel_from_client(Client &cl, Channel *ch)
+{
+	cl.channels.remove(ch);
+}
+
 // Remove user and delete channel if empty.
 inline void remove_and_maybe_delete(const std::string &chname, Channel &ch, int fd)
 {
@@ -98,6 +103,7 @@ bool handle_PART(int fd, Client &cl, std::map<int, Client> &clients, const std::
 		return false;
 
 	broadcast_part(clients, *ch, cl, fd, chname, reason);
-	remove_and_maybe_delete(chname, *ch, fd);
+	remove_and_maybe_delete(chname, *ch, fd); // removes user from channel
+	remove_channel_from_client(cl, ch); // removes channel from user's list
 	return false;
 }

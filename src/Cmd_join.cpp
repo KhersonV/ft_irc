@@ -83,11 +83,16 @@ bool under_user_limit(const Channel &ch, const std::string &chname, const Client
 	return true;
 }
 
-inline void add_member(Channel &ch, int fd)
+inline void add_client_to_channel(Channel &ch, int fd)
 {
 	const bool first = ch.members.empty();
 	ch.members.insert(fd);
 	if (first) ch.ops.insert(fd);
+}
+
+inline void add_channel_to_client(Client &cl, Channel *ch)
+{
+	cl.channels.push_back(ch);
 }
 
 inline void broadcast_join(std::map<int, Client> &clients, Channel &ch, const Client &cl, const std::string &chname)
@@ -112,7 +117,8 @@ bool handle_JOIN(int fd, Client &cl, std::map<int, Client> &clients, const std::
 	if (!key_ok(*ch, chname, provided_key, cl, fd, clients)) return false;
 	if (!under_user_limit(*ch, chname, cl, fd, clients))      return false;
 
-	add_member(*ch, fd);
+	add_client_to_channel(*ch, fd);
+	add_channel_to_client(cl, ch);
 	ch->invited.erase(fd);
 	broadcast_join(clients, *ch, cl, chname);
 	return false;
