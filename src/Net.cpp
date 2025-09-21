@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+// outgoing packets from server (to a client)
 void	handle_write_ready(int fd, std::map<int, Client> &clients,
 		std::vector<int> &fds)
 {
@@ -31,7 +32,7 @@ void	handle_write_ready(int fd, std::map<int, Client> &clients,
 		ftirc::close_and_remove(fd, fds, clients);
 	}
 }
-
+// incoming packets to server
 bool	handle_read_ready(int fd, std::map<int, Client> &clients,
 		std::vector<int> &fds)
 {
