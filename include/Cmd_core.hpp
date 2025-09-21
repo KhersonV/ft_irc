@@ -27,7 +27,7 @@ bool handle_INVITE(int fd, Client &cl, std::map<int, Client> &clients, const std
 bool handle_PART(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 bool handle_PRIVMSG(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 bool handle_NAMES(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
-
+bool handle_KICK(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 void finish_register(std::map<int, Client> &clients, int fd);
 
 #endif

@@ -70,6 +70,10 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	{
 		return handle_MODE(fd, cl, clients, rest);
 	}
+	if (cmd == "KICK")
+	{
+		return handle_KICK(fd, cl, clients, rest);
+	}
 	if (cmd == "USER")
 	{
 		return handle_USER(fd, cl, clients, rest);
