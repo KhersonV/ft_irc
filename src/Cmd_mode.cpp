@@ -149,6 +149,59 @@ bool	handle_mode_limit(Channel &ch, int fd, Client &cl, std::map<int,
 	}
 }
 
+bool handle_mode_op(Channel &ch, int fd, Client &cl,
+					std::map<int, Client> &clients,
+					const std::string &tok,
+					const std::string &args)
+{
+	if (!must_be_member(ch, fd, clients, cl) || !must_be_op(ch, fd, clients,
+			cl))
+		return (false);
+
+	std::string targetNick = first_token(args);
+	if (targetNick.empty()) {
+		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "MODE", "Not enough parameters");
+		return false;
+	}
+
+	std::string keyNick = ftirc::lower_str(targetNick);
+	std::map<std::string, int>::iterator iterator_fd = g_state.nick2fd.find(keyNick);
+	if (iterator_fd == g_state.nick2fd.end()) {
+		send_numeric(clients, fd, NO_SUCH_NICK, cl.nick, targetNick, "No such nick");
+		return false;
+	}
+	int target_fd = iterator_fd->second;
+
+	// the target should be member of the channel
+	if (!is_member(ch, target_fd)) {
+			send_numeric(clients, fd, USER_NOT_IN_CHANNEL, cl.nick,
+						targetNick + " " + ch.name,
+						"They aren't on that channel");
+			return false;
+	}
+
+	bool give = (tok == "+o");
+	bool changed = false;
+
+	if (give) {
+		if (ch.ops.insert(target_fd).second)
+			changed = true;
+	} else {
+		std::set<int>::iterator op_iterator = ch.ops.find(target_fd);
+		if (op_iterator != ch.ops.end()) {
+			ch.ops.erase(op_iterator);
+			changed = true;
+		}
+	}
+
+	if (changed) {
+		std::string line = ":" + cl.nick + " MODE " + ch.name + " "
+							+ (give ? "+o " : "-o ") + targetNick;
+		send_to_channel(clients, ch, line, -1);
+	}
+	return false;
+}
+
 bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 		const std::string &rest)
 {
@@ -194,9 +247,12 @@ bool	handle_MODE(int fd, Client &cl, std::map<int, Client> &clients,
 			return (handle_mode_key(ch, fd, cl, clients, tok, args));
 		if (tok == "+l" || tok == "-l")
 			return handle_mode_limit(ch, fd, cl, clients, tok, args);
+		if (tok == "+o" || tok == "-o")
+			return handle_mode_op(ch, fd, cl, clients, tok, args);
+
 		// если не распознали
 		send_numeric(clients, fd, UNKNOWN_MODE, cl.nick, tok,
-			"unknown mode char; use [+-]<t,i,k,l>");
+			"unknown mode char; use [+-]<t,i,k,l,o>");
 		return (false);
 	}
 	// показать текущие режимы

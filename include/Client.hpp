@@ -4,6 +4,7 @@
 #include <string>
 #include <ctime>
 #include <list>
+#include "Channel.hpp"
 
 struct Client {
 	int		fd;
