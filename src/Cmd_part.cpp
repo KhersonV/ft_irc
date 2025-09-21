@@ -76,12 +76,23 @@ inline void remove_channel_from_client(Client &cl, Channel *ch)
 	cl.channels.remove(ch);
 }
 
-// Remove user and delete channel if empty.
-inline void remove_and_maybe_delete(const std::string &chname, Channel &ch, int fd)
+inline void ensure_operator_if_needed(Channel &ch)
 {
-	remove_member_from_channel(ch, fd);
+	if (!ch.ops.empty())
+		return;
+	if (ch.members.empty())
+		return;
+	ch.ops.insert(*ch.members.begin());
+}
+
+// Remove user and delete channel if empty.
+inline void maybe_delete_or_promote(const std::string &chname, Channel &ch)
+{
 	if (ch.members.empty())
 		g_state.channels.erase(lower_str(chname));
+	else
+		ensure_operator_if_needed(ch);
+
 }
 
 } // anonymous namespace
@@ -103,7 +114,9 @@ bool handle_PART(int fd, Client &cl, std::map<int, Client> &clients, const std::
 		return false;
 
 	broadcast_part(clients, *ch, cl, fd, chname, reason);
-	remove_and_maybe_delete(chname, *ch, fd); // removes user from channel
 	remove_channel_from_client(cl, ch); // removes channel from user's list
+	remove_member_from_channel(*ch, fd);
+	ch->ops.erase(fd);
+	maybe_delete_or_promote(chname, *ch); // removes user from channel
 	return false;
 }
