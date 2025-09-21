@@ -49,15 +49,19 @@ bool cut_line(std::string &ib, std::string &line, bool debugLF)
 	}
 }
 
+// int set_nonblocking(int fd) {
+// 	int flags = fcntl(fd, F_GETFL, 0);
+// 	if (flags == -1) {
+// 		return -1;
+// 	}
+// 	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+// 		return -1;
+// 	}
+// 	return 0;
+// }
+
 int set_nonblocking(int fd) {
-	int flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1) {
-		return -1;
-	}
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		return -1;
-	}
-	return 0;
+	return (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) ? -1 : 0;
 }
 
 int create_listen_socket(int port) {
