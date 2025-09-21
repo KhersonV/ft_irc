@@ -9,6 +9,32 @@ using namespace ft_codes;
 
 namespace {
 
+	void broadcast_kick(std::map<int, Client> &clients,
+						Channel &ch,
+						Client &kicker, int kicker_fd,
+						std::string &chname,
+						std::string &target_nick,
+						std::string &reason)
+	{
+		std::string line = ":" + kicker.nick + " KICK " + chname + " " + target_nick;
+		if (!reason.empty())
+			line += " :" + reason;
+
+		enqueue_line(clients, kicker_fd, line);
+		send_to_channel(clients, ch, line, kicker_fd);
+	}
+
+	void remove_target_from_channel(Channel &ch, int target_fd)
+	{
+		remove_member_from_channel(ch, target_fd);
+		ch.ops.erase(target_fd);
+	}
+
+	void remove_channel_from_client(Client &cl, Channel *ch)
+	{
+		cl.channels.remove(ch);
+	}
+
 	bool	is_registered(Client &cl, int fd, std::map<int, Client> &clients)
 	{
 		if (!cl.registered)
@@ -124,6 +150,7 @@ namespace {
 		}
 		return (true);
 	}
+
 }
 	bool handle_KICK(int fd, Client &cl, std::map<int, Client> &clients,
 		const std::string &rest)
@@ -152,6 +179,18 @@ namespace {
 
 		if (!target_must_be_member(*ch, chname, target_nick, target_fd, cl, fd, clients))
 			return false;
+
+		std::string eff_reason = reason.empty() ? "Kicked" : reason;
+
+		broadcast_kick(clients, *ch, cl, fd, chname, target_nick, eff_reason);
+		remove_target_from_channel(*ch, target_fd);
+
+		std::map<int, Client>::iterator itTarget = clients.find(target_fd);
+		if (itTarget != clients.end())
+			remove_channel_from_client(itTarget->second, ch);
+
+		if (ch->members.empty())
+			g_state.channels.erase(lower_str(chname));
 
 		return false;
 	}
