@@ -50,9 +50,11 @@ void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<in
 
 	for (size_t i = 0; i < fds.size(); ++i) {
 		int cfd = fds[i];
-		short event = POLLIN; // default to always read (listen) incoming data
 		std::map<int, Client>::const_iterator it = clients.find(cfd);
-		if (it != clients.end() && !it->second.out.empty()) // if there's data to send, also watch for write readiness
+		if (it == clients.end()) continue; // should not happen
+	
+		short event = POLLIN; // default to always read (listen) incoming data
+		if (!it->second.out.empty()) // if there's data to send, also watch for write readiness
 			event |= POLLOUT; // |= keeps the POLLIN flag as well, kinda like +=
 		p.fd = cfd;
 		p.events = event;
