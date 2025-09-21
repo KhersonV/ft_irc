@@ -98,9 +98,9 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	{
 		return handle_NAMES(fd, cl, clients, rest);
 	}
-	if (cmd == "PRIVMSG")
+	if (cmd == "PRIVMSG" || cmd == "NOTICE")
 	{
-		return handle_PRIVMSG(fd, cl, clients, rest);
+		return handle_PRIVMSG(fd, cl, clients, rest, cmd);
 	}
 	if (cmd == "PING")
 	{

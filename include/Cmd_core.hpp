@@ -25,7 +25,7 @@ bool handle_JOIN(int fd, Client &cl, std::map<int, Client> &clients, const std::
 bool handle_QUIT(int fd, Client &cl,  std::map<int, Client> &clients, std::vector<int> &fds, const std::string &rest);
 bool handle_INVITE(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 bool handle_PART(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
-bool handle_PRIVMSG(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
+bool handle_PRIVMSG(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest, const std::string &cmd);
 bool handle_NAMES(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 bool handle_KICK(int fd, Client &cl, std::map<int, Client> &clients, const std::string &rest);
 void finish_register(std::map<int, Client> &clients, int fd);
