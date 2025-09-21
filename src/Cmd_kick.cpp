@@ -124,7 +124,7 @@ namespace {
 		}
 		return (true);
 	}
-
+}
 	bool handle_KICK(int fd, Client &cl, std::map<int, Client> &clients,
 		const std::string &rest)
 	{
@@ -136,6 +136,23 @@ namespace {
 		if (!parse_kick_args(rest, chname, target_nick, reason, cl, fd, clients))
 			return false;
 
+		Channel *ch = 0;
+		if (!find_channel(chname, ch, cl, fd, clients))
+			return false;
+
+		if (!must_be_member(*ch, fd, clients, cl))
+			return false;
+
+		if (!must_be_op(*ch, fd, clients, cl))
+			return false;
+
+		int target_fd = -1;
+		if (!lookup_target_fd(target_nick, target_fd, cl, fd, clients))
+			return false;
+
+		if (!target_must_be_member(*ch, chname, target_nick, target_fd, cl, fd, clients))
+			return false;
+
+		return false;
 	}
-}
 
