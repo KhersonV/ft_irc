@@ -80,17 +80,18 @@ void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Cl
 // handles single clients interactions
 void handle_one_fd(int fd, short revents, std::vector<int>& fds, std::map<int, Client>& clients)
 {
-	bool closed = false;
+	if (revents & (POLLERR | POLLHUP | POLLNVAL)) { // if revents has any of these flags set
+		ftirc::close_and_remove(fd, fds, clients);
+		return;
+	}
 
+	bool closed = false;
 	if (revents & POLLIN) { // if revents has POLLIN flag set
 		closed = handle_read_ready(fd, clients, fds);
 	}
 	if (closed) return;
 	if (revents & POLLOUT) { // if revents has POLLOUT flag set
 		handle_write_ready(fd, clients, fds);
-	}
-	if (revents & (POLLERR | POLLHUP | POLLNVAL)) { // if revents has any of these flags set
-		ftirc::close_and_remove(fd, fds, clients);
 	}
 }
 
