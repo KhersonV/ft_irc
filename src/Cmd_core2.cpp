@@ -110,6 +110,16 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	{
 		return handle_QUIT(fd, cl, clients, fds, rest);
 	}
-	enqueue_line(clients, fd, "You said: " + line);
+	if (cmd == "CAP") {
+		std::string sub = first_token(rest);
+		if (sub == "LS") {
+			enqueue_line(clients, fd, "CAP * LS :");
+		} else if (sub == "REQ") {
+			enqueue_line(clients, fd, "CAP * NAK :" + ltrim(rest.substr(3)));
+		} else if (sub == "END") {
+
+		}
+
+	}
 	return (false);
 }
