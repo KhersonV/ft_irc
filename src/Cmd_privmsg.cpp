@@ -5,6 +5,13 @@ using namespace ft_codes;
 
 namespace
 {
+static std::string user_prefix(const Client &c) {
+	const std::string host = "localhost";
+	const std::string user = c.user.empty() ? c.nick : c.user;
+	const std::string nick = c.nick.empty() ? "*" : c.nick;
+	return ":" + nick + "!" + user + "@" + host;
+}
+
 bool	is_registered(Client &cl, int fd, std::map<int, Client> &clients)
 {
 	if (!cl.registered)
@@ -72,7 +79,8 @@ bool send_privmsg_to_channel(std::map<int, Client> &clients, int fd, const Clien
 		return false;
 	}
 
-	const std::string line = ":" + cl.nick + " " + cmd + " " + target_chan + " :" + text;
+	const std::string line =
+		user_prefix(cl) + " " + cmd + " " + target_chan + " :" + text;
 	send_to_channel(clients, *ch, line, fd);
 	return true;
 }
@@ -90,8 +98,8 @@ bool find_target_fd_by_nick(const std::string &nick, int &out_fd, const Client &
 
 inline void send_privmsg_to_user(std::map<int, Client> &clients, int rfd, const Client &cl, const std::string &target_nick, const std::string &text, const std::string &cmd)
 {
-	const std::string from = cl.nick.empty() ? "*" : cl.nick;
-	const std::string line = ":" + from + " " + cmd + " " + target_nick + " :" + text;
+	const std::string line =
+		user_prefix(cl) + " " + cmd + " " + target_nick + " :" + text;
 	enqueue_line(clients, rfd, line);
 }
 
