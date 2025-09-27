@@ -59,12 +59,32 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	if (cmd == "PASS")
 	{
 		return handle_PASS(fd, cl, clients, rest);
-	} else if (!validate_PASS_OK(fd, cl, clients)) {
-		return (false);
 	}
 	if (cmd == "NICK")
 	{
 		return handle_NICK(fd, cl, clients, rest);
+	}
+	if (cmd == "USER")
+	{
+		return handle_USER(fd, cl, clients, rest);
+	}
+	if (cmd == "CAP") {
+		std::string sub = first_token(rest);
+		if (sub == "LS") {
+			enqueue_line(clients, fd, "CAP * LS :");
+		} else if (sub == "REQ") {
+			enqueue_line(clients, fd, "CAP * NAK :" + ltrim(rest.substr(3)));
+		} else if (sub == "END") {
+
+		}
+	}
+	if (cmd == "PING")
+	{
+		return handle_PING(fd, clients, rest);
+	}
+	if (!validate_PASS_OK(fd, cl, clients))
+	{
+		return (false);
 	}
 	if (cmd == "MODE")
 	{
@@ -73,10 +93,6 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	if (cmd == "KICK")
 	{
 		return handle_KICK(fd, cl, clients, rest);
-	}
-	if (cmd == "USER")
-	{
-		return handle_USER(fd, cl, clients, rest);
 	}
 	if (cmd == "TOPIC")
 	{
@@ -102,24 +118,9 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	{
 		return handle_PRIVMSG(fd, cl, clients, rest, cmd);
 	}
-	if (cmd == "PING")
-	{
-		return handle_PING(fd, clients, rest);
-	}
 	if (cmd == "QUIT")
 	{
 		return handle_QUIT(fd, cl, clients, fds, rest);
-	}
-	if (cmd == "CAP") {
-		std::string sub = first_token(rest);
-		if (sub == "LS") {
-			enqueue_line(clients, fd, "CAP * LS :");
-		} else if (sub == "REQ") {
-			enqueue_line(clients, fd, "CAP * NAK :" + ltrim(rest.substr(3)));
-		} else if (sub == "END") {
-
-		}
-
 	}
 	return (false);
 }
