@@ -2,6 +2,7 @@
 #include "Net.hpp"
 #include "utils.hpp"
 #include <cerrno>
+#include <cstdio>
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
