@@ -36,6 +36,7 @@ namespace
 			Channel>::iterator it = g_state.channels.begin(); it != g_state.channels.end(); ++it)
 		{
 			Channel &ch = it->second;
+			ch.invited.erase(fd);
 			if (ch.members.find(fd) != ch.members.end())
 			{
 				std::string line = ":" + nick + " QUIT :"
