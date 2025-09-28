@@ -10,6 +10,7 @@ struct			State
 {
 	std::string server_password;
 	std::map<std::string, int> nick2fd;
+	std::map<std::string, int> reservednick2fd;
 	std::map<std::string, Channel> channels;
 };
 extern State	g_state;
