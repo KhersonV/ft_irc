@@ -39,6 +39,7 @@ bool	is_valid_nick(const std::string &nickname)
 		case '_':
 		case '[':
 		case ']':
+		case ':':
 		case '\\':
 		case '`':
 		case '^':
@@ -88,18 +89,32 @@ bool is_nick_unique(const std::string &nick_key, int fd, std::map<int, Client> &
 
 void remove_old_nick_mapping(Client &cl, int fd)
 {
-	if (!cl.nick.empty()) {
-		std::string oldkey = lower_str(cl.nick);
-		std::map<std::string,int>::iterator old = g_state.nick2fd.find(oldkey);
-		if (old != g_state.nick2fd.end() && old->second == fd)
-			g_state.nick2fd.erase(old);
+	if (!cl.registered)
+	{
+		if (!cl.nick.empty()) {
+			std::string oldkey = lower_str(cl.nick);
+			std::map<std::string,int>::iterator old = g_state.reservednick2fd.find(oldkey);
+			if (old != g_state.reservednick2fd.end() && old->second == fd)
+				g_state.reservednick2fd.erase(old);
+		}
+	}
+	else {
+		if (!cl.nick.empty()) {
+			std::string oldkey = lower_str(cl.nick);
+			std::map<std::string,int>::iterator old = g_state.nick2fd.find(oldkey);
+			if (old != g_state.nick2fd.end() && old->second == fd)
+				g_state.nick2fd.erase(old);
+		}
 	}
 }
 
 void commit_nick_update(Client &cl, int fd,  const std::string &nick, const std::string &nick_key)
 {
 	cl.nick = nick;
-	g_state.nick2fd[nick_key] = fd;
+	if (cl.registered)
+		g_state.nick2fd[nick_key] = fd;
+	else
+		g_state.reservednick2fd[nick_key] = fd;
 }
 
 void broadcast_nick_change(std::map<int, Client> &clients,

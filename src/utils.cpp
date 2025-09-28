@@ -112,6 +112,7 @@ void close_and_remove(int fd,
 		const std::string& nick = it->second.nick;
 		if (!nick.empty()) {
 			g_state.nick2fd.erase(lower_str(nick));
+			g_state.reservednick2fd.erase(lower_str(nick));
 		}
 	}
 	close(fd);
