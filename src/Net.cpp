@@ -19,7 +19,9 @@ void	handle_write_ready(int fd, std::map<int, Client> &clients,
 	Client &c = it->second;
 	if (c.out.empty())
 		return ;
+	std::cout << "c.out.size() = " << c.out.size() << std::endl; 
 	n = send(fd, c.out.c_str(), c.out.size(), 0);
+	std::cout << "bytes sent = " << n << std::endl;
 	if (n > 0)
 	{
 		c.out.erase(0, n);
