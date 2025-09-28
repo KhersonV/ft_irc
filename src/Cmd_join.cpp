@@ -3,12 +3,54 @@
 #include "utils.hpp"
 #include "Irc_codes.hpp"
 #include "State.hpp"
+#include <sstream>
 
 using namespace ftirc;
 using namespace ft_codes;
 
-namespace 
+namespace
 {
+
+void send_topic_after_join(std::map<int, Client>& clients,
+								  const Channel& ch, const Client& cl)
+{
+	if (!ch.topic.empty()) {
+		send_numeric(clients, cl.fd, 332, cl.nick,
+					 ch.name, ch.topic);
+		if (!ch.topic_set_by.empty() && ch.topic_set_at > 0) {
+			std::ostringstream oss;
+			oss << ch.name << " " << ch.topic_set_by << " " << ch.topic_set_at;
+			send_numeric(clients, cl.fd, 333, cl.nick,
+						 oss.str(), "");
+		}
+	} else {
+		send_numeric(clients, cl.fd, 331, cl.nick,
+					 ch.name, "No topic is set");
+	}
+}
+
+static void send_names_after_join(std::map<int, Client>& clients,
+								  const Channel& ch, const Client& cl)
+{
+	std::string names;
+	for (std::set<int>::const_iterator it = ch.members.begin();
+		 it != ch.members.end(); ++it)
+	{
+		const Client& m = clients[*it];
+		bool op = (ch.ops.find(*it) != ch.ops.end());
+		if (!names.empty())
+			names += " ";
+		if (op)
+			names += "@";
+		names += (m.nick.empty() ? "*" : m.nick);
+	}
+
+	std::string params = "= " + ch.name + " :" + names;
+	send_numeric(clients, cl.fd, 353, cl.nick, params, "");
+
+	send_numeric(clients, cl.fd, 366, cl.nick,
+				 ch.name, "End of NAMES list");
+}
 
 bool is_registered(Client &cl, int fd, std::map<int, Client> &clients)
 {
@@ -113,13 +155,18 @@ bool handle_JOIN(int fd, Client &cl, std::map<int, Client> &clients, const std::
 
 	Channel *ch = get_or_create_channel(chname);
 
-	if (!can_join_invite_only(*ch, chname, cl, fd, clients)) return false;
-	if (!key_ok(*ch, chname, provided_key, cl, fd, clients)) return false;
-	if (!under_user_limit(*ch, chname, cl, fd, clients))      return false;
+	if (!can_join_invite_only(*ch, chname, cl, fd, clients))
+		return false;
+	if (!key_ok(*ch, chname, provided_key, cl, fd, clients))
+		return false;
+	if (!under_user_limit(*ch, chname, cl, fd, clients))
+		return false;
 
 	add_client_to_channel(*ch, fd);
 	add_channel_to_client(cl, ch);
 	ch->invited.erase(fd);
 	broadcast_join(clients, *ch, cl, chname);
+	send_topic_after_join(clients, *ch, cl);
+	send_names_after_join(clients, *ch, cl);
 	return false;
 }
