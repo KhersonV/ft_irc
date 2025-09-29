@@ -58,6 +58,10 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 		return (false);
 
 	Client &cl = clients[fd];
+	if (cmd == "QUIT")
+	{
+		return handle_QUIT(fd, cl, clients, fds, rest);
+	}
 	if (cmd == "PASS")
 	{
 		return handle_PASS(fd, cl, clients, rest);
@@ -119,10 +123,6 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	if (cmd == "PRIVMSG" || cmd == "NOTICE")
 	{
 		return handle_PRIVMSG(fd, cl, clients, rest, cmd);
-	}
-	if (cmd == "QUIT")
-	{
-		return handle_QUIT(fd, cl, clients, fds, rest);
 	}
 	return (false);
 }
