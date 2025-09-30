@@ -5,3 +5,5 @@
 #executable
 a.out
 ircserv
+
+.env
