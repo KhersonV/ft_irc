@@ -20,4 +20,11 @@ struct Client {
 	explicit	Client(int f): fd(f), pass_ok(false), registered(false) {}
 };
 
+inline std::string user_prefix(const Client &c) {
+	const std::string host = "localhost";
+	const std::string user = c.user.empty() ? c.nick : c.user;
+	const std::string nick = c.nick.empty() ? "*" : c.nick;
+	return ":" + nick + "!" + user + "@" + host;
+}
+
 #endif

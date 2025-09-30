@@ -1,16 +1,18 @@
 #include "Cmd_core.hpp"
+#include "Bot.hpp"
+#include "Client.hpp"
 
 using namespace ftirc;
 using namespace ft_codes;
 
 namespace
 {
-static std::string user_prefix(const Client &c) {
-	const std::string host = "localhost";
-	const std::string user = c.user.empty() ? c.nick : c.user;
-	const std::string nick = c.nick.empty() ? "*" : c.nick;
-	return ":" + nick + "!" + user + "@" + host;
-}
+// static std::string user_prefix(const Client &c) {
+// 	const std::string host = "localhost";
+// 	const std::string user = c.user.empty() ? c.nick : c.user;
+// 	const std::string nick = c.nick.empty() ? "*" : c.nick;
+// 	return ":" + nick + "!" + user + "@" + host;
+// }
 
 bool	is_registered(Client &cl, int fd, std::map<int, Client> &clients)
 {
@@ -123,6 +125,10 @@ bool handle_PRIVMSG(int fd, Client &cl, std::map<int, Client> &clients, const st
 	if (!find_target_fd_by_nick(target, rfd, cl, fd, clients))
 		return false;
 
+	if (target == "bot") {
+		Bot_handle_message(clients, rfd, cl, fd, text, cmd);
+		return false;
+	}
 	send_privmsg_to_user(clients, rfd, cl, target, text, cmd);
 	return false;
 }

@@ -19,6 +19,7 @@
 #include "Cmd_core.hpp"
 #include "State.hpp"
 #include "Net.hpp"
+#include "Bot.hpp"
 
 
 namespace {
@@ -113,11 +114,15 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+
+
 	signal(SIGPIPE, SIG_IGN);
 
 	std::vector<pollfd> pfds;
 	std::vector<int>    fds;
 	std::map<int, Client> clients;
+
+	Register_bot(clients);
 
 	int port = parse_args(argc, argv);
 	if (!(portValid(port))) { // technically we can have ports 0-65535, but 0-1023 are reserved and 49152-65535 are dynamic/private
