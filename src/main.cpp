@@ -70,9 +70,22 @@ void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Cl
 {
 	// todo will this always print to stderror no matter what??
 	for (;;) {
-		int cfd = accept(server_fd, 0, 0);
+		sockaddr_in sock;
+		std::memset(&sock, 0, sizeof(sock));
+		socklen_t sslen = sizeof(sock);
+
+		int cfd = accept(server_fd, (sockaddr*)&sock, &sslen);
 		if (cfd >= 0) {
-			add_client(cfd, fds, clients);
+			
+			char ipbuf[INET_ADDRSTRLEN];
+			const char* p = inet_ntop(AF_INET, &sock.sin_addr, ipbuf, sizeof(ipbuf));
+			std::string ip = p ? std::string(ipbuf) : std::string("127.0.0.1");
+
+			// if we want port later..
+			// unsigned port = ntohs(sock.sin_port);
+			// (void)port;
+
+			add_client(cfd, ip, fds, clients);
 			continue;
 		}
 		if (errno == EAGAIN || errno == EWOULDBLOCK) break;
