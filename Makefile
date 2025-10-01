@@ -8,8 +8,8 @@ SRC      := $(addprefix $(SRC_DIR)/, main.cpp utils.cpp Cmd_core2.cpp Proto.cpp 
 
 OBJ      := $(SRC:.cpp=.o)
 
-# ── Optional cURL (OFF by default for 42) ─────────────────────────────────────
-WITH_CURL ?= 1
+# ── Optional cURL (OFF by default for 42). Set to 1 to enable (if host machine has curl dep installed, otherwise bot will be basic) ─────────────────────────────────────
+WITH_CURL ?= 0 
 PKGCFG    ?= pkg-config
 
 ifeq ($(WITH_CURL),1)
