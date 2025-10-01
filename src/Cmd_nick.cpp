@@ -84,6 +84,12 @@ bool is_nick_unique(const std::string &nick_key, int fd, std::map<int, Client> &
 					nick_for_msg, "Nickname is already in use");
 		return false;
 	}
+	it = g_state.reservednick2fd.find(nick_key);
+	if (it != g_state.reservednick2fd.end() && it->second != fd) {
+		send_numeric(clients, fd_for_msg, NICKNAME_IN_USE, cl_for_msg.nick,
+					nick_for_msg, "Nickname is reserved in registration");
+		return false;
+	}
 	return true;
 }
 
