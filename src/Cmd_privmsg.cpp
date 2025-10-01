@@ -40,7 +40,7 @@ bool	find_channel(const std::string &chname, Channel *&out_ch,
 	return (true);
 }
 
-bool parse_privmsg(const std::string &rest, std::string &target, std::string &text, const Client &cl, int fd, std::map<int, Client> &clients, const std::string &cmd)
+bool parse_privmsg(const std::string &rest, std::vector<std::string> &targets, std::string &text, const Client &cl, int fd, std::map<int, Client> &clients, const std::string &cmd)
 {
 	if (rest.empty()) {
 		send_numeric(clients, fd, NO_RECIPIENT, cl.nick, cmd,
@@ -48,7 +48,7 @@ bool parse_privmsg(const std::string &rest, std::string &target, std::string &te
 		return false;
 	}
 
-	target = rest;
+	std::string target = rest;
 	std::string::size_type sp = target.find(' ');
 	if (sp != std::string::npos) target.erase(sp);
 
@@ -63,6 +63,7 @@ bool parse_privmsg(const std::string &rest, std::string &target, std::string &te
 		send_numeric(clients, fd, NO_TEXT_TO_SEND, cl.nick, "", "No text to send");
 		return false;
 	}
+	targets = split(target, ',');
 
 	text = rest.substr(pos_trailing + 2);
 	return true;
@@ -112,27 +113,32 @@ bool handle_PRIVMSG(int fd, Client &cl, std::map<int, Client> &clients, const st
 	if (!is_registered(cl, fd, clients))
 		return false;
 
-	std::string target, text;
-	if (!parse_privmsg(rest, target, text, cl, fd, clients, cmd))
+	std::vector<std::string> targets;
+	std::string text;
+	if (!parse_privmsg(rest, targets, text, cl, fd, clients, cmd))
 		return false;
 
-	if (!target.empty() && target[0] == '#') {
-		send_privmsg_to_channel(clients, fd, cl, target, text, cmd);
-		return false;
-	}
+	for (std::vector<std::string>::const_iterator it = targets.begin(); it != targets.end(); ++it) {
+		const std::string& target = *it;
 
-	int rfd = -1;
-	if (!find_target_fd_by_nick(target, rfd, cl, fd, clients))
-		return false;
-
-	if (target == "bot") {
-		if (cmd == "NOTICE") {
-			// ignore bot NOTICEs
-			return false;
+		if (!target.empty() && target[0] == '#') {
+			send_privmsg_to_channel(clients, fd, cl, target, text, cmd);
+			continue;
 		}
-		Bot_handle_message(clients, rfd, cl, fd, text, cmd);
-		return false;
+
+		int rfd = -1;
+		if (!find_target_fd_by_nick(target, rfd, cl, fd, clients))
+			continue;
+
+		if (target == "bot") {
+			if (cmd == "NOTICE") {
+				// ignore bot NOTICEs
+				continue;
+			}
+			Bot_handle_message(clients, rfd, cl, fd, text, cmd);
+			continue;
+		}
+		send_privmsg_to_user(clients, rfd, cl, target, text, cmd);
 	}
-	send_privmsg_to_user(clients, rfd, cl, target, text, cmd);
 	return false;
 }

@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <cstdlib>
+#include <sstream>
 
 namespace ftirc {
 
@@ -139,6 +140,16 @@ std::string first_token(const std::string &s)
 {
 	std::string::size_type ws = s.find(' ');
 	return (ws == std::string::npos) ? s : s.substr(0, ws);
+}
+
+std::vector<std::string> split(const std::string& s, char delimiter) {
+	std::vector<std::string> tokens;
+	std::stringstream ss(s);
+	std::string item;
+	while (std::getline(ss, item, delimiter)) {
+		tokens.push_back(item);
+	}
+	return tokens;
 }
 
 }
