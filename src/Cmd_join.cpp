@@ -62,7 +62,7 @@ bool is_registered(Client &cl, int fd, std::map<int, Client> &clients)
 	return true;
 }
 
-bool parse_join_args(const std::string &rest, std::string &chname, std::string &provided_key, const Client &cl, int fd, std::map<int, Client> &clients)
+bool parse_join_args(const std::string &rest, std::vector<std::string> &chnames, std::vector<std::string> &provided_keys, const Client &cl, int fd, std::map<int, Client> &clients)
 {
 	if (rest.empty()) {
 		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "JOIN",
@@ -70,28 +70,54 @@ bool parse_join_args(const std::string &rest, std::string &chname, std::string &
 		return false;
 	}
 
-	chname = first_token(rest);
-	if (chname.empty() || chname[0] != '#') {
-		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, chname,
-					"Specify a valid channel name starting with '#'");
+	std::string channels_part = first_token(rest);
+	chnames = split(channels_part, ',');
+
+	if (chnames.empty()) {
+		send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, "JOIN",
+					"Specify at least one channel starting with '#'");
 		return false;
 	}
 
-	// Optional key = first token after first space
+	for (std::vector<std::string>::const_iterator it = chnames.begin(); it != chnames.end(); ++it)
+	{
+		if (it->empty() || (*it)[0] != '#') {
+			// fail the whole command if any channel is invalid
+			send_numeric(clients, fd, NEED_MORE_PARAMS, cl.nick, channels_part,
+						"Specify valid channel names starting with '#'");
+			return false;
+		}
+	}
+
+	provided_keys.clear();
+	provided_keys.resize(chnames.size());
+
+	// Optional keys part: first token after first space
 	std::string::size_type sp = rest.find(' ');
 	if (sp != std::string::npos) {
-		provided_key = first_token(ltrim(rest.substr(sp + 1)));
-	} else {
-		provided_key.clear();
+		std::string keys_part = first_token(ltrim(rest.substr(sp + 1)));
+		if (!keys_part.empty()) {
+			std::vector<std::string> keys = split(keys_part, ',');
+			// less keys may be provided that channels, that's ok
+			const std::size_t limit = keys.size() < provided_keys.size() ? keys.size() : provided_keys.size();
+			for (std::size_t i = 0; i < limit; ++i) {
+				provided_keys[i] = keys[i]; // may be empty to intentionally skip a key (keyA,,keyC)
+			}
+		}
 	}
+
 	return true;
 }
 
-Channel* get_or_create_channel(const std::string &chname)
+// note: creator becomes op, but in add_client_to_channel(Channel &ch, int fd)
+Channel* get_or_create_channel(const std::string &chname, const std::string &key)
 {
-	const std::string key = lower_str(chname);
-	Channel &ch = g_state.channels[key];   // creates if missing
-	if (ch.name.empty()) ch.name = chname; // initialize display name
+	Channel &ch = g_state.channels[lower_str(chname)];   // creates if missing
+	if (ch.name.empty()) // new channel
+	{
+		ch.name = chname;
+		if (!key.empty()) ch.key = key; // set key if provided on chan creation
+	}
 	return &ch;
 }
 
@@ -149,24 +175,37 @@ bool handle_JOIN(int fd, Client &cl, std::map<int, Client> &clients, const std::
 	if (!is_registered(cl, fd, clients))
 		return false;
 
-	std::string chname, provided_key;
-	if (!parse_join_args(rest, chname, provided_key, cl, fd, clients))
+	std::vector<std::string> chnames, provided_keys;
+	if (!parse_join_args(rest, chnames, provided_keys, cl, fd, clients))
 		return false;
 
-	Channel *ch = get_or_create_channel(chname);
+	for (std::size_t i = 0; i < chnames.size(); ++i) {
+		const std::string& chname = chnames[i];
+		const std::string& provided_key = provided_keys[i];
 
-	if (!can_join_invite_only(*ch, chname, cl, fd, clients))
-		return false;
-	if (!key_ok(*ch, chname, provided_key, cl, fd, clients))
-		return false;
-	if (!under_user_limit(*ch, chname, cl, fd, clients))
-		return false;
+		Channel* ch = get_or_create_channel(chname, provided_key);
+		if (!ch) { // should never happen, just a safe-guard
+			send_numeric(clients, fd, NO_SUCH_CHANNEL, cl.nick, chname, "Unable to create or access channel");
+			continue; // try next channel
+		}
 
-	add_client_to_channel(*ch, fd);
-	add_channel_to_client(cl, ch);
-	ch->invited.erase(fd);
-	broadcast_join(clients, *ch, cl, chname);
-	send_topic_after_join(clients, *ch, cl);
-	send_names_after_join(clients, *ch, cl);
+		if (!can_join_invite_only(*ch, chname, cl, fd, clients))
+			continue;
+
+		if (!key_ok(*ch, chname, provided_key, cl, fd, clients))
+			continue;
+
+		if (!under_user_limit(*ch, chname, cl, fd, clients))
+			continue;
+
+		// Perform the join
+		add_client_to_channel(*ch, fd);
+		add_channel_to_client(cl, ch);
+		ch->invited.erase(fd);
+
+		broadcast_join(clients, *ch, cl, chname);
+		send_topic_after_join(clients, *ch, cl);
+		send_names_after_join(clients, *ch, cl);
+	}
 	return false;
 }
