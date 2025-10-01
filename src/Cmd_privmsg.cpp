@@ -126,6 +126,10 @@ bool handle_PRIVMSG(int fd, Client &cl, std::map<int, Client> &clients, const st
 		return false;
 
 	if (target == "bot") {
+		if (cmd == "NOTICE") {
+			// ignore bot NOTICEs
+			return false;
+		}
 		Bot_handle_message(clients, rfd, cl, fd, text, cmd);
 		return false;
 	}
