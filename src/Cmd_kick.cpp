@@ -137,14 +137,7 @@ namespace {
 		return true;
 	}
 
-	void ensure_operator_if_needed(Channel &ch)
-	{
-		if (!ch.ops.empty())
-			return;
-		if (ch.members.empty())
-			return;
-		ch.ops.insert(*ch.members.begin());
-	}
+
 
 	bool	must_be_op(const Channel &ch, int fd, std::map<int, Client> &clients,
 			const Client &cl)
@@ -198,8 +191,7 @@ namespace {
 
 		if (ch->members.empty())
 			g_state.channels.erase(lower_str(chname));
-		else
-			ensure_operator_if_needed(*ch);
+
 
 		return false;
 	}

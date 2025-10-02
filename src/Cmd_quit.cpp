@@ -4,15 +4,6 @@ using namespace ftirc;
 
 namespace
 {
-	void ensure_operator_if_needed(Channel &ch)
-	{
-		if (!ch.ops.empty())
-			return;
-		if (ch.members.empty())
-			return;
-		ch.ops.insert(*ch.members.begin());
-	}
-
 
 	std::string parse_quit_reason(const std::string &rest)
 	{
@@ -45,8 +36,6 @@ namespace
 				remove_member_from_channel(ch, fd);
 				if (ch.members.empty())
 					to_erase.push_back(it->first);
-				else
-					ensure_operator_if_needed(ch);
 			}
 		}
 		for (size_t i = 0; i < to_erase.size(); ++i)

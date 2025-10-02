@@ -76,22 +76,12 @@ inline void remove_channel_from_client(Client &cl, Channel *ch)
 	cl.channels.remove(ch);
 }
 
-inline void ensure_operator_if_needed(Channel &ch)
-{
-	if (!ch.ops.empty())
-		return;
-	if (ch.members.empty())
-		return;
-	ch.ops.insert(*ch.members.begin());
-}
 
 // Remove user and delete channel if empty.
 inline void maybe_delete_or_promote(const std::string &chname, Channel &ch)
 {
 	if (ch.members.empty())
 		g_state.channels.erase(lower_str(chname));
-	else
-		ensure_operator_if_needed(ch);
 
 }
 
