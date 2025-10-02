@@ -20,8 +20,6 @@ static std::string build_prefix_for_old_nick(const Client &cl, const std::string
 
 bool	is_valid_nick(const std::string &nickname)
 {
-	unsigned char	c;
-
 	// size limit
 	if (nickname.empty() || nickname.size() > 9)
 	{
