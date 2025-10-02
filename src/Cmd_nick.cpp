@@ -22,30 +22,40 @@ bool	is_valid_nick(const std::string &nickname)
 {
 	unsigned char	c;
 
-	if (nickname.empty() || nickname.size() > 30)
+	// size limit
+	if (nickname.empty() || nickname.size() > 9)
 	{
 		return (false);
 	}
+
+	// first character not numeric
+	unsigned char c0 = static_cast<unsigned char>(nickname[0]);
+	if (std::isdigit(c0))
+	{
+		return (false);
+	}
+
 	for (size_t i = 0; i < nickname.size(); ++i)
 	{
-		c = nickname[i];
-		if (std::isalnum(c))
+		unsigned char uc = static_cast<unsigned char>(nickname[i]);
+		if (std::isalnum(uc))
 		{
 			continue ;
 		}
-		switch (c)
+		switch (uc)
 		{
+		case ':':
+			return (false);
 		case '-':
 		case '_':
 		case '[':
 		case ']':
-		case ':':
 		case '\\':
 		case '`':
 		case '^':
 		case '{':
 		case '}':
-			continue ;
+			continue ; // allowed special characters
 		default:
 			return (false);
 		}
@@ -79,13 +89,13 @@ bool validate_nick(const std::string &nick, std::map<int, Client> &clients, int 
 bool is_nick_unique(const std::string &nick_key, int fd, std::map<int, Client> &clients,  int fd_for_msg, const Client &cl_for_msg, const std::string &nick_for_msg)
 {
 	std::map<std::string,int>::iterator it = g_state.nick2fd.find(nick_key);
-	if (it != g_state.nick2fd.end() && it->second != fd) {
+	if (it != g_state.nick2fd.end() && it->second != fd) { // if we found a record AND it belongs to another client
 		send_numeric(clients, fd_for_msg, NICKNAME_IN_USE, cl_for_msg.nick,
 					nick_for_msg, "Nickname is already in use");
 		return false;
 	}
 	it = g_state.reservednick2fd.find(nick_key);
-	if (it != g_state.reservednick2fd.end() && it->second != fd) {
+	if (it != g_state.reservednick2fd.end() && it->second != fd) { // if we found a record AND it belongs to another client
 		send_numeric(clients, fd_for_msg, NICKNAME_IN_USE, cl_for_msg.nick,
 					nick_for_msg, "Nickname is reserved in registration");
 		return false;
