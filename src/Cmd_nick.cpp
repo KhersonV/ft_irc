@@ -159,7 +159,7 @@ bool handle_NICK(int fd, Client &cl, std::map<int, Client> &clients, const std::
 	std::string old_nick = cl.nick;
 	remove_old_nick_mapping(cl, fd);
 	commit_nick_update(cl, fd, nick, key);
-	if (!old_nick.empty() || old_nick == nick) {
+	if (!old_nick.empty() && old_nick != nick) {
 		broadcast_nick_change(clients, cl, nick, old_nick);
 	}
 
