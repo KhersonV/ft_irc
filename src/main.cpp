@@ -64,26 +64,59 @@ void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<in
 	}
 }
 
+// // accepts all queued incoming connections (non-blocking)
+// // to turn readiness on the listen socket into new client fds
+// void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Client>& clients)
+// {
+// 	for (;;) {
+// 		sockaddr_in sock;
+// 		std::memset(&sock, 0, sizeof(sock));
+// 		socklen_t sslen = sizeof(sock);
+
+// 		int cfd = accept(server_fd, (sockaddr*)&sock, &sslen);
+// 		if (cfd >= 0) {
+			
+// 			char ipbuf[INET_ADDRSTRLEN];
+// 			const char* p = inet_ntop(AF_INET, &sock.sin_addr, ipbuf, sizeof(ipbuf));
+// 			std::string ip = p ? std::string(ipbuf) : std::string("127.0.0.1");
+
+// 			// if we want port later..
+// 			// unsigned port = ntohs(sock.sin_port);
+// 			// (void)port;
+
+// 			add_client(cfd, ip, fds, clients);
+// 			continue;
+// 		}
+// 		if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+// 		std::perror("accept");
+// 		break;
+// 	}
+// }
+
 // accepts all queued incoming connections (non-blocking)
 // to turn readiness on the listen socket into new client fds
 void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Client>& clients)
 {
-	// todo will this always print to stderror no matter what??
 	for (;;) {
-		sockaddr_in sock;
-		std::memset(&sock, 0, sizeof(sock));
-		socklen_t sslen = sizeof(sock);
+		sockaddr_storage ss;
+		std::memset(&ss, 0, sizeof(ss));
+		socklen_t sslen = sizeof(ss);
 
-		int cfd = accept(server_fd, (sockaddr*)&sock, &sslen);
+		int cfd = accept(server_fd, (sockaddr*)&ss, &sslen);
 		if (cfd >= 0) {
-			
-			char ipbuf[INET_ADDRSTRLEN];
-			const char* p = inet_ntop(AF_INET, &sock.sin_addr, ipbuf, sizeof(ipbuf));
-			std::string ip = p ? std::string(ipbuf) : std::string("127.0.0.1");
+			std::string ip = "127.0.0.1"; // fallback
 
-			// if we want port later..
-			// unsigned port = ntohs(sock.sin_port);
-			// (void)port;
+			if (ss.ss_family == AF_INET) {
+				const sockaddr_in* sin = reinterpret_cast<const sockaddr_in*>(&ss);
+				char ipbuf[INET_ADDRSTRLEN];
+				const char* p = inet_ntop(AF_INET, &sin->sin_addr, ipbuf, sizeof(ipbuf));
+				if (p) ip.assign(p);
+			} else if (ss.ss_family == AF_INET6) {
+				const sockaddr_in6* sin6 = reinterpret_cast<const sockaddr_in6*>(&ss);
+				char ipbuf6[INET6_ADDRSTRLEN];
+				const char* p6 = inet_ntop(AF_INET6, &sin6->sin6_addr, ipbuf6, sizeof(ipbuf6));
+				if (p6) ip.assign(p6);
+			}
 
 			add_client(cfd, ip, fds, clients);
 			continue;
@@ -93,6 +126,8 @@ void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Cl
 		break;
 	}
 }
+
+
 // handles single clients interactions
 void handle_one_fd(int fd, short revents, std::vector<int>& fds, std::map<int, Client>& clients)
 {
