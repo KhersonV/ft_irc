@@ -10,14 +10,6 @@ using namespace ftirc;
 namespace
 {
 
-static std::string build_prefix_for_old_nick(const Client &cl, const std::string &old_nick)
-{
-	const std::string host = "localhost";
-	const std::string user = cl.user.empty() ? old_nick : cl.user;
-	const std::string nick = old_nick.empty() ? "*" : old_nick;
-	return ":" + nick + "!" + user + "@" + host;
-}
-
 bool	is_valid_nick(const std::string &nickname)
 {
 	// size limit
@@ -138,7 +130,7 @@ void broadcast_nick_change(std::map<int, Client> &clients,
 {
 	if (old_nick.empty() || old_nick == new_nick) return;
 
-	const std::string prefix = build_prefix_for_old_nick(cl, old_nick);
+	const std::string prefix = user_prefix_old_nick(cl, old_nick);
 	const std::string msg = prefix + " NICK :" + new_nick;
 
 	for (std::list<Channel*>::const_iterator it = cl.channels.begin();
