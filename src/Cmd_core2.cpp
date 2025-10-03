@@ -51,7 +51,7 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 }
 
 bool	process_line(int fd, const std::string &line, std::map<int,
-		Client> &clients, std::vector<int> &fds)
+		Client> &clients)
 {
 	std::string cmd, rest;
 	if (!parse_input(line, cmd, rest))
@@ -60,7 +60,7 @@ bool	process_line(int fd, const std::string &line, std::map<int,
 	Client &cl = clients[fd];
 	if (cmd == "QUIT")
 	{
-		return handle_QUIT(fd, cl, clients, fds, rest);
+		return handle_QUIT(fd, cl, clients, rest);
 	}
 	if (cmd == "PASS")
 	{

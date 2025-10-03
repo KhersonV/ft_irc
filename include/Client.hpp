@@ -16,6 +16,7 @@ struct Client {
 	std::list<Channel*> channels;
 	bool		pass_ok;
 	bool		registered;
+	bool		closing;
 
 	std::string ip;
 

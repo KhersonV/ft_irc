@@ -46,12 +46,14 @@ namespace
 
 } // anonymous namespace
 
-bool handle_QUIT(int fd, Client &cl,  std::map<int, Client> &clients, std::vector<int> &fds, const std::string &rest)
+bool handle_QUIT(int fd, Client &cl,  std::map<int, Client> &clients, const std::string &rest)
 {
 	const std::string reason = parse_quit_reason(rest);
 
 	leave_all_channels(clients, display_nick(cl.nick), fd, reason);
-	close_and_remove(fd, fds, clients);
-	return true;
+
+	enqueue_line(clients, fd, "ERROR :Closing Link: " + display_nick(cl.nick) + " (" + reason + ")");
+	clients[fd].closing = true;
+	return false;
 }
 

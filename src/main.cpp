@@ -53,9 +53,9 @@ void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<in
 		int cfd = fds[i];
 		std::map<int, Client>::const_iterator it = clients.find(cfd);
 		if (it == clients.end()) continue; // should not happen
-	
+
 		short event = POLLIN; // default to always read (listen) incoming data
-		if (!it->second.out.empty()) // if there's data to send, also watch for write readiness
+		if (!it->second.out.empty() || it->second.closing) // if there's data to send, also watch for write readiness
 			event |= POLLOUT; // |= keeps the POLLIN flag as well, kinda like +=
 		p.fd = cfd;
 		p.events = event;
@@ -75,7 +75,7 @@ void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<in
 
 // 		int cfd = accept(server_fd, (sockaddr*)&sock, &sslen);
 // 		if (cfd >= 0) {
-			
+
 // 			char ipbuf[INET_ADDRSTRLEN];
 // 			const char* p = inet_ntop(AF_INET, &sock.sin_addr, ipbuf, sizeof(ipbuf));
 // 			std::string ip = p ? std::string(ipbuf) : std::string("127.0.0.1");

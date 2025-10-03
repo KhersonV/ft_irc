@@ -8,31 +8,30 @@
 #include <unistd.h>
 
 // outgoing packets from server (to a client)
-void	handle_write_ready(int fd, std::map<int, Client> &clients,
-		std::vector<int> &fds)
+void handle_write_ready(int fd, std::map<int, Client> &clients, std::vector<int> &fds)
 {
-	ssize_t	n;
-
 	std::map<int, Client>::iterator it = clients.find(fd);
-	if (it == clients.end())
-		return ;
+	if (it == clients.end()) return;
 	Client &c = it->second;
-	if (c.out.empty())
-		return ;
-	std::cout << "c.out.size() = " << c.out.size() << std::endl; 
-	n = send(fd, c.out.c_str(), c.out.size(), 0);
-	std::cout << "bytes sent = " << n << std::endl;
-	if (n > 0)
-	{
-		c.out.erase(0, n);
-		return ;
+
+	if (!c.out.empty()) {
+		ssize_t n = send(fd, c.out.c_str(), c.out.size(), 0);
+		if (n > 0) {
+			c.out.erase(0, n);
+		} else if (n < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				return;
+			}
+			std::perror("send");
+			ftirc::close_and_remove(fd, fds, clients);
+			return;
+		}
 	}
-	if (n < 0)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return ;
-		std::perror("send");
+
+	if (c.closing && c.out.empty()) {
+		::shutdown(fd, SHUT_RDWR);
 		ftirc::close_and_remove(fd, fds, clients);
+		return;
 	}
 }
 // incoming packets to server
@@ -58,7 +57,7 @@ bool	handle_read_ready(int fd, std::map<int, Client> &clients,
 				if (!ftirc::cut_line(c.in, line, ftirc::debug_lf_mode()))
 					break ;
 				std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
-				if (process_line(fd, line, clients, fds))
+				if (process_line(fd, line, clients))
 					return (true);
 			}
 			continue ;
