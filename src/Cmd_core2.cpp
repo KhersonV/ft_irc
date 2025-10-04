@@ -44,8 +44,9 @@ void	finish_register(std::map<int, Client> &clients, int fd)
 	if (c.nick.empty() || c.user.empty())
 		return ;
 	c.registered = true;
-	g_state.nick2fd[c.nick] = fd;
-	g_state.reservednick2fd.erase(lower_str(c.nick));
+	std::string key = lower_str(c.nick);
+	g_state.nick2fd[key] = fd;
+	g_state.reservednick2fd.erase(key);
 	send_numeric(clients, fd, WELCOME, c.nick, "", "Welcome to ft_irc " + c.nick);
 	send_numeric(clients, fd, YOUR_HOST, c.nick, "", "Your host is ft_irc");
 }
