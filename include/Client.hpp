@@ -22,9 +22,9 @@ struct Client {
 
 	std::string ip;
 
-	Client():	fd(-1), pass_ok(false), registered(false), ip("127.0.0.1") {}
-	explicit	Client(int f): fd(f), pass_ok(false), registered(false), ip("127.0.0.1") {}
-	explicit	Client(int f, const std::string& i): fd(f), pass_ok(false), registered(false), ip(i) {}
+	Client():	fd(-1), pass_ok(false), registered(false), closing(false), ip("127.0.0.1") {}
+	explicit	Client(int f): fd(f), pass_ok(false), registered(false), closing(false), ip("127.0.0.1") {}
+	explicit	Client(int f, const std::string& i): fd(f), pass_ok(false), registered(false),  closing(false), ip(i) {}
 };
 
 // inline std::string user_prefix(const Client &c) {
