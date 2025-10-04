@@ -200,6 +200,10 @@ int main(int argc, char** argv)
 		handle_events(pfds, fds, clients);
 	}
 
+	std::vector<int> to_close = fds;      // snapshot because close_and_remove mutates fds
+	for (size_t i = 0; i < to_close.size(); ++i)
+    	ftirc::close_and_remove(to_close[i], fds, clients);
+
 	close(server_fd);
 	return 0;
 }
