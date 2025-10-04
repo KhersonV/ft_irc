@@ -84,5 +84,12 @@ void add_client(int cfd, const std::string &ip,
 	ftirc::set_nonblocking(cfd);
 	std::cout << "New client fd=" << cfd << "\n";
 	fds.push_back(cfd);
-	clients.insert(std::make_pair(cfd, Client(cfd, ip)));
+	std::string cleanIp;
+	if (ip.size() > 7 && ip.compare(0, 7, "::ffff:") == 0) {
+		cleanIp = ip.substr(7);
+	} else {
+		cleanIp = ip;
+	}
+
+	clients.insert(std::make_pair(cfd, Client(cfd, cleanIp)));
 }
