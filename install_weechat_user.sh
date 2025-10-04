@@ -88,3 +88,98 @@ echo "[7/7] Done."
 echo
 echo "Launch WeeChat with: weechat"
 echo "If 'weechat' not found, run: export PATH=\"${BINDIR}:\$PATH\""
+
+
+# /eval /set weechat.plugin.path "${env:HOME}/apps/weechat/usr/lib/x86_64-linux-gnu/weechat/plugins"
+# /plugin autoload
+
+# instruction for WeeChat
+
+# start nc with small c (nc -c 127.0.0.1 6667)
+# start weechat with -d flag for multiple instances
+
+# weechat -d ~/.weechat2
+# weechat -d ~/.weechat1
+# ...
+
+# commands:
+
+# A) join server / create user
+
+# /server add ftirc_a 127.0.0.1/6667 -password=otherpass
+# /set irc.server.ftirc_a.password pass
+# /set irc.server.ftirc_a.nicks "alice,alice_"
+# /set irc.server.ftirc_a.username "alice"
+# /set irc.server.ftirc_a.realname "Alice Test"
+# /set irc.server.ftirc_a.tls off
+# /connect ftirc_a
+
+# nc -c 127.0.0.1 6667
+# PASS otherpass
+# NICK alice
+# USER alice 0 * :Alice Test
+
+# //////
+
+# B) create / join channel
+# /join #testChnl
+# JOIN #testChnl 
+
+# /join #teschnl chnlpass
+# JOIN #testchnl chnlpass
+
+# ///////
+
+# C) messages
+# /msg #testChnl hello world
+# /query alice hi
+# /msg alice hi
+# PRIVMSG #testChnl :hello world
+# PRIVMSG alice :hi
+
+# //////
+
+# D) CHANNEL COMMANDS
+
+# 1) topic
+# /topic #testChnl some topic
+# TOPIC #testChnl :some topic
+
+# 2) KICK
+# /kick #testChnl bob msgReason
+# KICK #testChnl bob :msgReason
+
+# 3) INVITE
+# /invite bob #testChnl
+# INVITE bob #testChnl
+
+# 4) MODE (+ enable, - disable)
+# - i (invite only mode)
+# /mode #testChnl +i
+# MODE #testChnl +i
+# - t (TOPIC command mode)
+# /mode #testChnl +t
+# MODE #testChnl +t
+# - k (channel key (password))
+# /mode #testChnl +k secret
+# MODE #testChnl +k secret
+# - o (Give/take operator privilege)
+# /mode #testChnl +o bob
+# MODE #testChnl +o bob
+# - l (user limits)
+# /mode #testChnl +l 2
+# MODE #testChnl +l 2
+
+# 5) leave chnl, quit
+# /part #test
+# /quit Bye
+
+# PART #test :Bye
+# QUIT :Bye
+
+# 6) sending files (only with via clients, will not work with nc)
+# uses privmsg to send request and client takes it from there
+# it may be beneficial to set download path
+# /set xfer.file.download_path "absPath"
+
+# /dcc send <clientNick> <absfilepath>
