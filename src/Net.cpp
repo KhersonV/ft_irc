@@ -54,7 +54,10 @@ bool	handle_read_ready(int fd, std::map<int, Client> &clients,
 		{
 			std::string line;
 			if (!ftirc::cut_line(c.in, line, ftirc::debug_lf_mode())) // looks for \r\n
+			{
+				std::cout << "Partial line fd=" << fd << " : \"" << c.in << "\"\n";
 				break ;
+			}
 			std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
 			process_line(fd, line, clients);
 		}
