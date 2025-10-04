@@ -97,13 +97,12 @@ void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<in
 // to turn readiness on the listen socket into new client fds
 void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Client>& clients)
 {
-	for (;;) {
 		sockaddr_storage ss;
 		std::memset(&ss, 0, sizeof(ss));
 		socklen_t sslen = sizeof(ss);
 
 		int cfd = accept(server_fd, (sockaddr*)&ss, &sslen);
-		if (cfd >= 0) {
+		if (cfd < 0) { return; }
 			std::string ip = "127.0.0.1"; // fallback
 
 			if (ss.ss_family == AF_INET) {
@@ -119,12 +118,6 @@ void register_new_clients(int server_fd, std::vector<int>& fds, std::map<int, Cl
 			}
 
 			add_client(cfd, ip, fds, clients);
-			continue;
-		}
-		if (errno == EAGAIN || errno == EWOULDBLOCK) break;
-		std::perror("accept");
-		break;
-	}
 }
 
 
