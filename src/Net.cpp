@@ -45,37 +45,29 @@ bool	handle_read_ready(int fd, std::map<int, Client> &clients,
 	if (it == clients.end())
 		return (true);
 	Client &c = it->second;
-	for (;;)
+
+	n = recv(fd, buf, sizeof(buf), 0);
+	if (n > 0)
 	{
-		n = recv(fd, buf, sizeof(buf), 0);
-		if (n > 0)
+		c.in.append(buf, n);
+		for (;;)
 		{
-			c.in.append(buf, n);
-			for (;;)
-			{
-				std::string line;
-				if (!ftirc::cut_line(c.in, line, ftirc::debug_lf_mode()))
-					break ;
-				std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
-				if (process_line(fd, line, clients))
-					return (true);
-			}
-			continue ;
+			std::string line;
+			if (!ftirc::cut_line(c.in, line, ftirc::debug_lf_mode())) // looks for \r\n
+				break ;
+			std::cout << "LINE fd=" << fd << " : \"" << line << "\"\n";
+			process_line(fd, line, clients);
 		}
-		if (n == 0)
-		{
-			std::cout << "EOF fd=" << fd << "\n";
-			ftirc::close_and_remove(fd, fds, clients);
-			return (true);
-		}
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-		{
-			return (false);
-		}
-		std::perror("recv");
+		return false;
+	}
+	if (n == 0) // peer closed, we can kill it
+	{
+		std::cout << "EOF fd=" << fd << "\n";
 		ftirc::close_and_remove(fd, fds, clients);
 		return (true);
 	}
+
+	return (false);
 }
 
 void add_client(int cfd, const std::string &ip,
