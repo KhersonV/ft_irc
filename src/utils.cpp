@@ -65,86 +65,146 @@ int set_nonblocking(int fd) {
 	return (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) ? -1 : 0;
 }
 
-int create_listen_socket(int port) {
-	// 1) Try IPv6 listener (prefer dual-stack if OS allows)
-	int fd = socket(AF_INET6, SOCK_STREAM, 0);
-	if (fd >= 0) {
-		int yes = 1;
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
-			std::perror("setsockopt SO_REUSEADDR (v6)");
-			close(fd);
-			return -1;
-		}
+ListenFds create_listeners(int port) {
+    ListenFds out;
 
-		// Try to allow dual-stack (IPv4 via v4-mapped). Some OSes ignore this.
-		int v6only = 0;
-		(void)setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
+    // 1) IPv6 socket (attempt dual-stack)
+    int v6 = socket(AF_INET6, SOCK_STREAM, 0);
+    if (v6 >= 0) {
+        int yes = 1;
+        setsockopt(v6, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
-		if (set_nonblocking(fd) < 0) {
-			std::perror("fcntl O_NONBLOCK (v6)");
-			close(fd);
-			return -1;
-		}
+        int v6only = 0; // request dual-stack; some systems ignore this
+        (void)setsockopt(v6, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
 
-		struct sockaddr_in6 addr6;
-		std::memset(&addr6, 0, sizeof(addr6));
-		addr6.sin6_family = AF_INET6;
-		addr6.sin6_addr   = in6addr_any;           // ::
-		addr6.sin6_port   = htons(port);
+        if (set_nonblocking(v6) < 0) { std::perror("fcntl O_NONBLOCK v6"); close(v6); v6 = -1; }
+        if (v6 >= 0) {
+            sockaddr_in6 a6; std::memset(&a6, 0, sizeof(a6));
+            a6.sin6_family = AF_INET6;
+            a6.sin6_addr   = in6addr_any;      // ::
+            a6.sin6_port   = htons(port);
+            if (bind(v6, (sockaddr*)&a6, sizeof(a6)) == 0 && listen(v6, 128) == 0) {
+                out.v6 = v6;
+                std::cout << "Listening on [::]:" << port << " (IPv6)\n";
+            } else {
+                std::perror("bind/listen v6");
+                close(v6); v6 = -1;
+            }
+        }
+    }
 
-		if (bind(fd, (struct sockaddr*)&addr6, sizeof(addr6)) == 0) {
-			int backlog = 128;
-			if (listen(fd, backlog) == 0) {
-				std::cout << "Listening on [::]:" << port << " (IPv6";
-				std::cout << ", dual-stack " << (v6only ? "off?" : "attempted") << ")\n";
-				return fd;
-			}
-			std::perror("listen (v6)");
-		} else {
-			std::perror("bind (v6)");
-		}
-		close(fd);
-		// fall through to IPv4 fallback
-	}
+    // 2) IPv4 socket (open unless v6 already claimed v4 on the same port)
+    int v4 = socket(AF_INET, SOCK_STREAM, 0);
+    if (v4 >= 0) {
+        int yes = 1;
+        setsockopt(v4, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+        if (set_nonblocking(v4) < 0) { std::perror("fcntl O_NONBLOCK v4"); close(v4); v4 = -1; }
+        if (v4 >= 0) {
+            sockaddr_in a4; std::memset(&a4, 0, sizeof(a4));
+            a4.sin_family = AF_INET;
+            a4.sin_addr.s_addr = htonl(INADDR_ANY); // 0.0.0.0
+            a4.sin_port = htons(port);
+            if (bind(v4, (sockaddr*)&a4, sizeof(a4)) == 0) {
+                if (listen(v4, 128) == 0) {
+                    out.v4 = v4;
+                    std::cout << "Listening on 0.0.0.0:" << port << " (IPv4)\n";
+                } else { std::perror("listen v4"); close(v4); out.v4 = -1; }
+            } else {
+                if (errno == EADDRINUSE && out.v6 >= 0) {
+                    // Likely dual-stack active on v6 socket; proceed with v6 only.
+                    std::cout << "IPv4 bind EADDRINUSE; assuming dual-stack via IPv6 listener.\n";
+                } else {
+                    std::perror("bind v4"); // real failure
+                }
+                close(v4); v4 = -1;
+            }
+        }
+    }
 
-	// 2) Fallback: IPv4-only listener
-	fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (fd < 0) {
-		std::perror("socket (v4)");
-		return -1;
-	}
-	int yes = 1;
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
-		std::perror("setsockopt SO_REUSEADDR (v4)");
-		close(fd);
-		return -1;
-	}
-	if (set_nonblocking(fd) < 0) {
-		std::perror("fcntl O_NONBLOCK (v4)");
-		close(fd);
-		return -1;
-	}
-
-	struct sockaddr_in addr4;
-	std::memset(&addr4, 0, sizeof(addr4));
-	addr4.sin_family      = AF_INET;
-	addr4.sin_addr.s_addr = htonl(INADDR_ANY);     // 0.0.0.0
-	addr4.sin_port        = htons(port);
-
-	if (bind(fd, (struct sockaddr*)&addr4, sizeof(addr4)) < 0) {
-		std::perror("bind (v4)");
-		close(fd);
-		return -1;
-	}
-	int backlog = 128;
-	if (listen(fd, backlog) < 0) {
-		std::perror("listen (v4)");
-		close(fd);
-		return -1;
-	}
-	std::cout << "Listening on 0.0.0.0:" << port << " (IPv4 only)\n";
-	return fd;
+    if (out.v6 < 0 && out.v4 < 0) std::cerr << "Failed to create any listener\n";
+    return out;
 }
+
+// int create_listen_socket(int port) {
+// 	// 1) Try IPv6 listener (prefer dual-stack if OS allows)
+// 	int fd = socket(AF_INET6, SOCK_STREAM, 0);
+// 	if (fd >= 0) {
+// 		int yes = 1;
+// 		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+// 			std::perror("setsockopt SO_REUSEADDR (v6)");
+// 			close(fd);
+// 			return -1;
+// 		}
+
+// 		// Try to allow dual-stack (IPv4 via v4-mapped). Some OSes ignore this.
+// 		int v6only = 0;
+// 		(void)setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
+
+// 		if (set_nonblocking(fd) < 0) {
+// 			std::perror("fcntl O_NONBLOCK (v6)");
+// 			close(fd);
+// 			return -1;
+// 		}
+
+// 		struct sockaddr_in6 addr6;
+// 		std::memset(&addr6, 0, sizeof(addr6));
+// 		addr6.sin6_family = AF_INET6;
+// 		addr6.sin6_addr   = in6addr_any;           // ::
+// 		addr6.sin6_port   = htons(port);
+
+// 		if (bind(fd, (struct sockaddr*)&addr6, sizeof(addr6)) == 0) {
+// 			int backlog = 128;
+// 			if (listen(fd, backlog) == 0) {
+// 				std::cout << "Listening on [::]:" << port << " (IPv6";
+// 				std::cout << ", dual-stack " << (v6only ? "off?" : "attempted") << ")\n";
+// 				return fd;
+// 			}
+// 			std::perror("listen (v6)");
+// 		} else {
+// 			std::perror("bind (v6)");
+// 		}
+// 		close(fd);
+// 		// fall through to IPv4 fallback
+// 	}
+
+// 	// 2) Fallback: IPv4-only listener
+// 	fd = socket(AF_INET, SOCK_STREAM, 0);
+// 	if (fd < 0) {
+// 		std::perror("socket (v4)");
+// 		return -1;
+// 	}
+// 	int yes = 1;
+// 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
+// 		std::perror("setsockopt SO_REUSEADDR (v4)");
+// 		close(fd);
+// 		return -1;
+// 	}
+// 	if (set_nonblocking(fd) < 0) {
+// 		std::perror("fcntl O_NONBLOCK (v4)");
+// 		close(fd);
+// 		return -1;
+// 	}
+
+// 	struct sockaddr_in addr4;
+// 	std::memset(&addr4, 0, sizeof(addr4));
+// 	addr4.sin_family      = AF_INET;
+// 	addr4.sin_addr.s_addr = htonl(INADDR_ANY);     // 0.0.0.0
+// 	addr4.sin_port        = htons(port);
+
+// 	if (bind(fd, (struct sockaddr*)&addr4, sizeof(addr4)) < 0) {
+// 		std::perror("bind (v4)");
+// 		close(fd);
+// 		return -1;
+// 	}
+// 	int backlog = 128;
+// 	if (listen(fd, backlog) < 0) {
+// 		std::perror("listen (v4)");
+// 		close(fd);
+// 		return -1;
+// 	}
+// 	std::cout << "Listening on 0.0.0.0:" << port << " (IPv4 only)\n";
+// 	return fd;
+// }
 
 // old iv4 only version
 // int create_listen_socket(int port) {

@@ -27,6 +27,9 @@ std::string ltrim(const std::string &s);
 std::string first_token(const std::string &s);
 std::vector<std::string> split(const std::string& s, char delimiter);
 
+struct ListenFds { int v6; int v4; ListenFds():v6(-1),v4(-1){} };
+ListenFds create_listeners(int port);
+
 }
 
 #endif

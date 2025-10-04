@@ -36,33 +36,69 @@ bool portValid(int port) {
 	return port >= 1024 && port <= 49151;
 }
 
-
-// rebuilds the list of fds that poll() should watch (listener + clients)
-// poll() needs an up-to-date array each loop to know what to wait for
-void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<int, Client>& clients, std::vector<pollfd>& pfds)
-{
-	pfds.clear();
-	pfds.reserve(1 + fds.size());
-	pollfd p;
-	p.fd = server_fd;
-	p.events = POLLIN;
-	p.revents = 0;
-	pfds.push_back(p);
-
-	for (size_t i = 0; i < fds.size(); ++i) {
-		int cfd = fds[i];
-		std::map<int, Client>::const_iterator it = clients.find(cfd);
-		if (it == clients.end()) continue; // should not happen
-
-		short event = POLLIN; // default to always read (listen) incoming data
-		if (!it->second.out.empty() || it->second.closing) // if there's data to send, also watch for write readiness
-			event |= POLLOUT; // |= keeps the POLLIN flag as well, kinda like +=
-		p.fd = cfd;
-		p.events = event;
-		p.revents = 0;
-		pfds.push_back(p);
-	}
+static inline void add_fd(std::vector<pollfd>& pfds, int fd, short ev) {
+    struct pollfd e;
+    e.fd = fd;
+    e.events = ev;
+    e.revents = 0;
+    pfds.push_back(e);
 }
+
+void build_pollfds(const ftirc::ListenFds& srv,
+                   const std::vector<int>& fds,
+                   const std::map<int, Client>& clients,
+                   std::vector<pollfd>& pfds)
+{
+    pfds.clear();
+    pfds.reserve((srv.v6 >= 0) + (srv.v4 >= 0) + fds.size());
+
+    // auto add_fd = [&](int fd, short ev){
+    //     pollfd e; e.fd = fd; e.events = ev; e.revents = 0;
+    //     pfds.push_back(e);
+    // };
+
+    // 1) listeners first (order fixed: v6, then v4)
+    if (srv.v6 >= 0) add_fd(pfds, srv.v6, POLLIN | POLLERR | POLLHUP);
+    if (srv.v4 >= 0) add_fd(pfds, srv.v4, POLLIN | POLLERR | POLLHUP);
+
+    // 2) client fds
+    for (size_t i = 0; i < fds.size(); ++i) {
+        int cfd = fds[i];
+        std::map<int, Client>::const_iterator it = clients.find(cfd);
+        if (it == clients.end()) continue; // shouldn't happen
+
+        short ev = POLLIN | POLLERR | POLLHUP;
+        if (!it->second.out.empty() || it->second.closing) ev |= POLLOUT;
+        add_fd(pfds, cfd, ev);
+    }
+}
+
+// // rebuilds the list of fds that poll() should watch (listener + clients)
+// // poll() needs an up-to-date array each loop to know what to wait for
+// void build_pollfds(int server_fd, const std::vector<int>& fds, const std::map<int, Client>& clients, std::vector<pollfd>& pfds)
+// {
+// 	pfds.clear();
+// 	pfds.reserve(1 + fds.size());
+// 	pollfd p;
+// 	p.fd = server_fd;
+// 	p.events = POLLIN;
+// 	p.revents = 0;
+// 	pfds.push_back(p);
+
+// 	for (size_t i = 0; i < fds.size(); ++i) {
+// 		int cfd = fds[i];
+// 		std::map<int, Client>::const_iterator it = clients.find(cfd);
+// 		if (it == clients.end()) continue; // should not happen
+
+// 		short event = POLLIN; // default to always read (listen) incoming data
+// 		if (!it->second.out.empty() || it->second.closing) // if there's data to send, also watch for write readiness
+// 			event |= POLLOUT; // |= keeps the POLLIN flag as well, kinda like +=
+// 		p.fd = cfd;
+// 		p.events = event;
+// 		p.revents = 0;
+// 		pfds.push_back(p);
+// 	}
+// }
 
 // // accepts all queued incoming connections (non-blocking)
 // // to turn readiness on the listen socket into new client fds
@@ -178,14 +214,22 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	int server_fd = ftirc::create_listen_socket(port);
-	if (server_fd < 0) {
-		std::perror("create_listen_socket");
+	// int server_fd = ftirc::create_listen_socket(port);
+	// if (server_fd < 0) {
+	// 	std::perror("create_listen_socket");
+	// 	return 1;
+	// }
+
+	ftirc::ListenFds srv = ftirc::create_listeners(port);
+	if (srv.v6 < 0 && srv.v4 < 0) {
+		std::cerr << "Failed to create any listener\n";
 		return 1;
 	}
 
 	for (;;) { // eternal server loop
-		build_pollfds(server_fd, fds, clients, pfds);
+		build_pollfds(srv, fds, clients, pfds);
+
+		// build_pollfds(server_fd, fds, clients, pfds);
 
 		int ret = poll(&pfds[0], pfds.size(), -1); // sets revents in pfds
 		if (ret < 0) {
@@ -194,12 +238,19 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		if (pfds[0].revents & POLLIN) // if the server is ready to accept new connections
-			register_new_clients(server_fd, fds, clients);
+		// Accept new clients from either listener
+		if (srv.v6 >= 0 && (pfds[0].fd == srv.v6) && (pfds[0].revents & POLLIN))
+			register_new_clients(srv.v6, fds, clients);
+		if (srv.v4 >= 0 && (pfds[0].fd == srv.v4) && (pfds[0].revents & POLLIN))
+			register_new_clients(srv.v4, fds, clients);
+
+		// if (pfds[0].revents & POLLIN) // if the server is ready to accept new connections
+		// 	register_new_clients(server_fd, fds, clients);
 
 		handle_events(pfds, fds, clients);
 	}
 
-	close(server_fd);
+	close(srv.v6);
+	close(srv.v4);
 	return 0;
 }
