@@ -4,6 +4,8 @@
 #include <string>
 #include <ctime>
 #include <list>
+#include <iomanip>
+#include <iostream>
 #include "Channel.hpp"
 
 struct Client {
@@ -41,7 +43,7 @@ struct Client {
 // }
 
 inline std::string user_prefix(const Client &c) {
-	const std::string host = (c.ip.empty() || c.ip == "127.0.0.1" || c.ip == "::1")
+	const std::string host = (c.ip.empty() || c.ip == "127.0.0.1" || c.ip == "::1" || c.ip == "::ffff:127.0.0.1")
 		? "localhost" : c.ip;
 	const std::string nick = c.nick.empty() ? "*" : c.nick;
 
@@ -52,7 +54,7 @@ inline std::string user_prefix(const Client &c) {
 }
 
 inline std::string user_prefix_old_nick(const Client &c, const std::string &old_nick) {
-	const std::string host = (c.ip.empty() || c.ip == "127.0.0.1" || c.ip == "::1")
+	const std::string host = (c.ip.empty() || c.ip == "127.0.0.1" || c.ip == "::1" || c.ip == "::ffff:127.0.0.1")
 		? "localhost" : c.ip;
 	const std::string nick = old_nick.empty() ? "*" : old_nick;
 
